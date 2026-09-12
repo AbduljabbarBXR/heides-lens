@@ -1,68 +1,63 @@
 import blessed from 'blessed';
-import { configCommand } from '../commands/config.js';
 
 const LOGO = `
-  _ __   __ _  ___ _ __ ___   ___  _ __
- | '_ \\ / _\` |/ _ \\ '_ \` _ \\ / _ \\| '_ \\
- | | | | (_| |  __/ | | | | | (_) | | | |
- |_| |_|\\__,_|\\___|_| |_| |_|\\___/|_| |_|
+   _____            __   _
+  / ___/___  ____  / /__(_)_      __
+  \\__ \\/ _ \\/ __ \\/ //_/ / | /| / /
+ ___/ /  __/ / / / ,< / /| |/ |/ /
+/____/\\___/_/ /_/_/|_/_/ |__/|__/
 `;
 
 export async function launchTUI() {
   const screen = blessed.screen({
     smartCSR: true,
-    title: 'VybeCode',
+    title: 'Spikey',
     fullUnicode: true,
+    mouse: true,
   });
 
-  const borderStyle = { fg: '#00ff88' };
+  const green = '#00ff88';
+  const bg = '#0a0a0f';
 
   const header = blessed.box({
     top: 0,
     left: 0,
     width: '100%',
-    height: 12,
+    height: 8,
     content: LOGO,
     border: 'line',
-    style: {
-      fg: '#00ff88',
-      bg: '#0a0a0f',
-      border: borderStyle,
-    },
+    style: { fg: green, bg, border: { fg: green } },
+    clickable: true,
   });
 
-  const infoBox = blessed.box({
-    top: 12,
+  const statusBar = blessed.box({
+    top: 8,
     left: 0,
     width: '100%',
-    height: 4,
+    height: 3,
     content: ' Loading...',
     tags: true,
     border: 'line',
-    style: {
-      fg: '#ffffff',
-      bg: '#0a0a0f',
-      border: borderStyle,
-    },
+    style: { fg: '#ffffff', bg, border: { fg: green } },
+    clickable: true,
   });
 
   const resultsBox = blessed.box({
-    top: 16,
+    top: 11,
     left: 0,
     width: '100%',
-    height: '60%',
+    height: '80%',
     label: ' Workflow / Results ',
     mouse: true,
     scrollable: true,
     alwaysScroll: true,
-    scrollbar: { ch: ' ', style: { bg: '#00ff88' } },
+    scrollbar: { ch: ' ', style: { bg: green } },
     tags: true,
     border: 'line',
-    style: {
-      fg: '#ffffff',
-      bg: '#0a0a0f',
-      border: borderStyle,
-    },
+    style: { fg: '#ffffff', bg, border: { fg: green } },
+    clickable: true,
+    keys: true,
+    vi: true,
   });
 
   const inputBox = blessed.textbox({
@@ -73,15 +68,12 @@ export async function launchTUI() {
     label: ' Input ',
     inputOnFocus: true,
     border: 'line',
-    style: {
-      fg: '#ffffff',
-      bg: '#0a0a0f',
-      border: borderStyle,
-    },
+    style: { fg: '#ffffff', bg, border: { fg: green } },
+    clickable: true,
   });
 
   screen.append(header);
-  screen.append(infoBox);
+  screen.append(statusBar);
   screen.append(resultsBox);
   screen.append(inputBox);
 
@@ -95,22 +87,20 @@ export async function launchTUI() {
   function getConfig(key: string) {
     try {
       const { execSync } = require('child_process');
-      const out = execSync(`node dist/index.js config get ${key}`, { encoding: 'utf-8' }).trim();
-      return out;
+      return execSync(`node dist/index.js config get ${key}`, { encoding: 'utf-8' }).trim();
     } catch {
       return '';
     }
   }
 
-  function refreshInfo() {
+  function refreshStatus() {
     const apiStatus = state.apiKey ? '{green-fg}API Key: ****' : '{red-fg}API Key: NOT SET';
-    const providerInfo = `{cyan-fg}Provider: ${state.provider}{/cyan-fg} | {cyan-fg}Model: ${state.model}{/cyan-fg} | ${apiStatus}`;
-    const projectInfo = `{yellow-fg}Project: ${state.projectPath}{/yellow-fg}`;
-    infoBox.setContent(` {bold}VybeCode{/bold}  |  ${providerInfo}  |  ${projectInfo}  |  {grey-fg}[p] provider  [m] model  [k] api key  [q] quit{/grey-fg}`);
+    const info = `{bold}Spikey{/bold}  |  {cyan-fg}Provider: ${state.provider}{/cyan-fg}  |  {cyan-fg}Model: ${state.model}{/cyan-fg}  |  ${apiStatus}  |  {yellow-fg}Project: ${state.projectPath}{/yellow-fg}  |  [p] provider  [m] model  [q] quit`;
+    statusBar.setContent(info);
     screen.render();
   }
 
-  refreshInfo();
+  refreshStatus();
 
   const history: string[] = [];
   let historyIndex = -1;
@@ -122,12 +112,24 @@ export async function launchTUI() {
     screen.render();
   }
 
+  function runCommand(cmd: string, args: string[]) {
+    const path = args[0] || state.projectPath;
+    appendResult(`{yellow-fg}Running: ${cmd} ${path}{/yellow-fg}`);
+    try {
+      const { execSync } = require('child_process');
+      const out = execSync(`node dist/index.js ${cmd} --path "${path}"`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+      appendResult(out);
+    } catch (err: any) {
+      appendResult(`{red-fg}Error: ${err.message}{/red-fg}`);
+    }
+  }
+
   function processInput(raw: string) {
     const input = raw.trim();
     if (!input) return;
 
     if (input === '/help') {
-      appendResult('{bold}Commands:{/bold}\n  analyze [path]  - Full analysis\n  diff [path]      - Show diff\n  graph [path]     - Dependency graph\n  /clear           - Clear results\n  /help            - This help');
+      appendResult('{bold}Commands:{/bold}\n  analyze [path]  - Full analysis\n  diff [path]      - Show diff\n  graph [path]     - Dependency graph\n  /clear           - Clear\n  /help            - This help');
       return;
     }
 
@@ -145,16 +147,8 @@ export async function launchTUI() {
     const parts = input.split(' ');
     const cmd = parts[0].toLowerCase();
 
-    if (cmd === 'analyze' || cmd === 'diff' || cmd === 'graph') {
-      const path = parts[1] || state.projectPath;
-      appendResult('{yellow-fg}Running analysis...{/yellow-fg}');
-      try {
-        const { execSync } = require('child_process');
-        const out = execSync(`node dist/index.js ${cmd} --path "${path}"`, { encoding: 'utf-8', maxBuffer: 5 * 1024 * 1024 });
-        appendResult(out);
-      } catch (err: any) {
-        appendResult(`{red-fg}Error: ${err.message}{/red-fg}`);
-      }
+    if (['analyze', 'diff', 'graph'].includes(cmd)) {
+      runCommand(cmd, parts.slice(1));
     } else if (cmd === 'config') {
       const sub = parts[1];
       const key = parts[2];
@@ -165,7 +159,7 @@ export async function launchTUI() {
           execSync(`node dist/index.js config set ${key} ${value}`, { encoding: 'utf-8' });
           state[key as keyof typeof state] = value;
           appendResult(`{green-fg}Set ${key} = ${value}{/green-fg}`);
-          refreshInfo();
+          refreshStatus();
         } catch (err: any) {
           appendResult(`{red-fg}Error: ${err.message}{/red-fg}`);
         }
@@ -175,8 +169,7 @@ export async function launchTUI() {
       } else if (sub === 'list') {
         try {
           const { execSync } = require('child_process');
-          const out = execSync('node dist/index.js config list', { encoding: 'utf-8' });
-          appendResult(out);
+          appendResult(execSync('node dist/index.js config list', { encoding: 'utf-8' }));
         } catch (err: any) {
           appendResult(`{red-fg}Error: ${err.message}{/red-fg}`);
         }
@@ -184,26 +177,24 @@ export async function launchTUI() {
         appendResult('Usage: config set <key> <value> | config get <key> | config list');
       }
     } else {
-      appendResult('{grey-fg}Type /help for commands, or use: analyze [path], diff [path], graph [path]{/grey-fg}');
+      appendResult('{grey-fg}Unknown command. Type /help for commands.{/grey-fg}');
     }
   }
 
   inputBox.on('submit', (value) => {
     processInput(value);
+    inputBox.clearValue();
+    inputBox.focus();
     screen.render();
   });
 
-  inputBox.key(['escape', 'q', 'C-c'], () => {
-    process.exit(0);
-  });
+  inputBox.key(['escape', 'q', 'C-c'], () => process.exit(0));
 
   screen.key('p', () => {
     const providers = ['openai', 'anthropic', 'ollama'];
-    const current = providers.indexOf(state.provider);
-    const next = providers[(current + 1) % providers.length];
-    state.provider = next;
-    appendResult(`{cyan-fg}Provider switched to: ${next}{/cyan-fg}`);
-    refreshInfo();
+    state.provider = providers[(providers.indexOf(state.provider) + 1) % providers.length];
+    appendResult(`{cyan-fg}Provider: ${state.provider}{/cyan-fg}`);
+    refreshStatus();
   });
 
   screen.key('m', () => {
@@ -213,18 +204,38 @@ export async function launchTUI() {
       ollama: ['llama-3.1', 'mistral', 'codellama'],
     };
     const list = models[state.provider] || ['default'];
-    const current = list.indexOf(state.model);
-    const next = list[(current + 1) % list.length];
-    state.model = next;
-    appendResult(`{cyan-fg}Model switched to: ${next}{/cyan-fg}`);
-    refreshInfo();
+    state.model = list[(list.indexOf(state.model) + 1) % list.length];
+    appendResult(`{cyan-fg}Model: ${state.model}{/cyan-fg}`);
+    refreshStatus();
   });
 
   screen.key('q', () => process.exit(0));
   screen.key('C-c', () => process.exit(0));
 
-  resultsBox.focus();
+  // Scroll results with arrow keys when resultsBox is focused
+  resultsBox.key('up', () => { resultsBox.scroll(-1); screen.render(); });
+  resultsBox.key('down', () => { resultsBox.scroll(1); screen.render(); });
+  resultsBox.key('pageup', () => { resultsBox.setScrollPerc(resultsBox.getScrollPerc() - 10); screen.render(); });
+  resultsBox.key('pagedown', () => { resultsBox.setScrollPerc(resultsBox.getScrollPerc() + 10); screen.render(); });
+
+  // Mouse/touch: click results to focus and enable scrolling
+  resultsBox.on('click', () => {
+    resultsBox.focus();
+    screen.render();
+  });
+
+  // Mouse/touch: click input to focus it
+  inputBox.on('click', () => {
+    inputBox.focus();
+    screen.render();
+  });
+
+  // Mouse wheel scroll on results
+  resultsBox.on('wheeldown', () => { resultsBox.scroll(3); screen.render(); });
+  resultsBox.on('wheelup', () => { resultsBox.scroll(-3); screen.render(); });
+
+  inputBox.focus();
   screen.render();
 
-  appendResult(`{bold}Welcome to VybeCode{/bold}\nType {green-fg}analyze [path]{/green-fg} to start, or {green-fg}/help{/green-fg} for all commands.\nUse {grey-fg}[p]{/grey-fg} to switch provider, {grey-fg}[m]{/grey-fg} to switch model.`);
+  appendResult(`{bold}Welcome to Spikey{/bold}\nType {green-fg}analyze [path]{/green-fg}, {green-fg}diff [path]{/green-fg}, or {green-fg}graph [path]{/green-fg}\nUse {grey-fg}[p]{/grey-fg} provider, {grey-fg}[m]{/grey-fg} model, {grey-fg}[q]{/grey-fg} quit`);
 }
