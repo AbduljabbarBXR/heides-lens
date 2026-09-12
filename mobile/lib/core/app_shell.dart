@@ -85,40 +85,37 @@ class _AppShellState extends ConsumerState<AppShell> {
                   child: Column(
                     children: [
                       const SizedBox(height: 12),
-                      // Nav items - centered in compact mode
+                      // Nav items - left-aligned in compact mode
                       if (isCompact)
                         Expanded(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _NavIconButton(
-                                    icon: Icons.architecture_rounded,
-                                    isActive: navState.currentMode == AppMode.plan,
-                                    onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.plan),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _NavIconButton(
-                                    icon: Icons.terminal_rounded,
-                                    isActive: navState.currentMode == AppMode.workflow,
-                                    onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.workflow),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _NavIconButton(
-                                    icon: Icons.account_tree_rounded,
-                                    isActive: navState.currentMode == AppMode.graph,
-                                    onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.graph),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _NavIconButton(
-                                    icon: Icons.verified_rounded,
-                                    isActive: navState.currentMode == AppMode.review,
-                                    onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.review),
-                                  ),
-                                ],
+                              const SizedBox(height: 8),
+                              _NavIconButton(
+                                icon: Icons.architecture_rounded,
+                                isActive: navState.currentMode == AppMode.plan,
+                                onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.plan),
                               ),
+                              const SizedBox(height: 6),
+                              _NavIconButton(
+                                icon: Icons.terminal_rounded,
+                                isActive: navState.currentMode == AppMode.workflow,
+                                onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.workflow),
+                              ),
+                              const SizedBox(height: 6),
+                              _NavIconButton(
+                                icon: Icons.account_tree_rounded,
+                                isActive: navState.currentMode == AppMode.graph,
+                                onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.graph),
+                              ),
+                              const SizedBox(height: 6),
+                              _NavIconButton(
+                                icon: Icons.verified_rounded,
+                                isActive: navState.currentMode == AppMode.review,
+                                onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.review),
+                              ),
+                              const SizedBox(height: 8),
                             ],
                           ),
                         )
@@ -369,14 +366,15 @@ class _NavIconButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: isActive ? AppColors.surfaceHover : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: isActive ? Border.all(color: AppColors.primary, width: 1) : null,
         ),
-        child: Icon(icon, color: isActive ? AppColors.primary : AppColors.textMuted, size: 20),
+        child: Icon(icon, color: isActive ? AppColors.primary : AppColors.textMuted, size: 18),
       ),
     );
   }
@@ -400,22 +398,25 @@ class _NavItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
         decoration: BoxDecoration(
           color: isActive ? AppColors.surfaceHover : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: isActive ? Border.all(color: AppColors.primary, width: 1) : null,
         ),
         child: Row(
           children: [
-            Icon(icon, color: isActive ? AppColors.primary : AppColors.textMuted, size: 22),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: isActive ? AppColors.primary : AppColors.textMuted,
+            Icon(icon, color: isActive ? AppColors.primary : AppColors.textMuted, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isActive ? AppColors.primary : AppColors.textMuted,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
