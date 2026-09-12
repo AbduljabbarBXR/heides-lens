@@ -14,6 +14,8 @@ import 'package:spikey/features/file_viewer/presentation/widgets/file_content_vi
 import 'package:spikey/features/settings/presentation/screens/settings_screen.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
+import 'dart:io';
+import 'package:window_manager/window_manager.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -85,6 +87,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                     style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                   ),
                 const SizedBox(width: 16),
+                // Window controls (desktop only)
+                if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) ...[
+                  _WindowControlButton(icon: Icons.minimize_rounded, onTap: () async => await windowManager.minimize()),
+                  _WindowControlButton(icon: Icons.check_box_outline_blank_rounded, onTap: () async => await windowManager.maximize()),
+                  _WindowControlButton(icon: Icons.close_rounded, onTap: () async => await windowManager.close()),
+                ],
               ],
             ),
           ),
@@ -415,6 +423,30 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
       );
     }
+  }
+}
+
+class _WindowControlButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _WindowControlButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceHover,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, size: 16, color: AppColors.textSecondary),
+      ),
+    );
   }
 }
 

@@ -8,10 +8,13 @@ import 'dart:io';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Desktop window setup
   if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
     await windowManager.ensureInitialized();
     await windowManager.waitUntilReadyToShow();
+    await windowManager.setMinimumSize(const Size(1024, 768));
+    await windowManager.setSize(const Size(1280, 800));
+    await windowManager.setTitle('Spikey');
+    await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
     await windowManager.show();
     await windowManager.focus();
   }
