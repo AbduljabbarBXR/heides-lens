@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
 import 'package:spikey/core/providers/navigation_provider.dart';
 import 'package:spikey/core/providers/project_provider.dart';
+import 'package:spikey/core/providers/indexing_provider.dart';
 import 'package:spikey/features/plan/presentation/screens/plan_screen.dart';
 import 'package:spikey/features/workflow/presentation/screens/workflow_screen.dart';
 import 'package:spikey/features/graph/presentation/screens/graph_screen.dart';
@@ -128,6 +129,7 @@ class AppShell extends ConsumerWidget {
                   subtitle: Text(p.path, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   onTap: () {
                     ref.read(projectProvider.notifier).setActiveProject(p);
+                    ref.invalidate(indexedFilesProvider);
                     Navigator.pop(context);
                   },
                 ),

@@ -30,6 +30,30 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     });
   }
 
+  void _createProject(BuildContext context) {
+    if (_scaffold == null) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Create Project', style: TextStyle(color: AppColors.textPrimary)),
+        content: const Text('Project structure will be generated from the architecture scaffold. This is a demo — file creation will be implemented next.', style: TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Project creation coming in next step'), backgroundColor: AppColors.surface),
+              );
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -96,15 +120,15 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                     child: Row(
                       children: [
                         ElevatedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.download_rounded, size: 18),
-                          label: const Text('Export'),
+                          onPressed: () => _createProject(context),
+                          icon: const Icon(Icons.create_new_folder_rounded, size: 18),
+                          label: const Text('Create Project'),
                         ),
                         const SizedBox(width: 12),
                         OutlinedButton.icon(
                           onPressed: () {},
-                          icon: const Icon(Icons.code_rounded, size: 18),
-                          label: const Text('Generate Code'),
+                          icon: const Icon(Icons.download_rounded, size: 18),
+                          label: const Text('Export'),
                         ),
                         const SizedBox(width: 12),
                         OutlinedButton.icon(
