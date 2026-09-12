@@ -1,18 +1,24 @@
 import { FileNode, DependencyEdge } from '../models/types.js';
 import fs from 'fs';
 import path from 'path';
+import { ASTParser } from './parsers/tree_sitter_parser.js';
 
 export async function buildDependencyGraph(projectPath: string, options: { format: string; maxDepth: number }) {
   const nodes: FileNode[] = [];
   const edges: DependencyEdge[] = [];
   try {
     const files = await globFiles(projectPath);
+    const parser = new ASTParser();
     for (const file of files) {
       const content = await fs.promises.readFile(file, 'utf-8');
       const ext = file.split('.').pop()?.toLowerCase();
       const language = getLanguage(ext || '');
       const loc = content.split('\n').length;
-      const deps = await extractImports(content, language);
+      let deps: string[] = [];
+      try {
+        const result = await parser.parseFile(file, language);
+        deps = result.imports.map(i => i.to_module);
+      } catch { deps = []; }
       nodes.push({
         id: file,
         path: file,
@@ -58,26 +64,6 @@ function renderDot(nodes: FileNode[], edges: DependencyEdge[]): string {
   for (const edge of edges.slice(0, 50)) lines.push(`  "${edge.from}" -> "${edge.to}";`);
   lines.push('}');
   return lines.join('\n');
-}
-
-async function extractImports(content: string, language: string): Promise<string[]> {
-  const imports: string[] = [];
-  const patterns: Record<string, RegExp[]> = {
-    javascript: [/import\s+.*\s+from\s+['"]([^'"]+)['"]/g, /require\(['"]([^'"]+)['"]\)/g],
-    typescript: [/import\s+.*\s+from\s+['"]([^'"]+)['"]/g, /require\(['"]([^'"]+)['"]\)/g],
-    python: [/^(?:from|import)\s+([^\s]+)/gm],
-    go: [/^import\s+(?:"([^"]+)"|([a-zA-Z0-9_]+))/gm],
-    rust: [/^use\s+([^;]+);/gm],
-  };
-  const regexes = patterns[language] || [];
-  for (const regex of regexes) {
-    let match;
-    while ((match = regex.exec(content)) !== null) {
-      const dep = match[1] || match[2];
-      if (dep && !dep.startsWith('.') && !dep.startsWith('/')) imports.push(dep);
-    }
-  }
-  return imports;
 }
 
 function getLanguage(ext: string): string {

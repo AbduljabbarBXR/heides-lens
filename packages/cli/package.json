@@ -27,6 +27,7 @@
     "simple-git": "^3.22.0",
     "sql.js": "^1.8.0",
     "tree-sitter": "^0.20.4",
+    "tree-sitter-cli": "^0.27.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
