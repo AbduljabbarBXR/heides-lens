@@ -9,11 +9,20 @@ import 'package:spikey/features/workflow/presentation/screens/workflow_screen.da
 import 'package:spikey/features/graph/presentation/screens/graph_screen.dart';
 import 'package:spikey/features/review/presentation/screens/review_screen.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  double _sidebarWidth = 200;
+  double _sidebarMinWidth = 120;
+  double _sidebarMaxWidth = 320;
+
+  @override
+  Widget build(BuildContext context) {
     final navState = ref.watch(navigationProvider);
     final projectState = ref.watch(projectProvider);
 
@@ -22,7 +31,7 @@ class AppShell extends ConsumerWidget {
         children: [
           // Sidebar
           Container(
-            width: 72,
+            width: _sidebarWidth,
             color: AppColors.surface,
             child: Column(
               children: [
@@ -86,6 +95,22 @@ class AppShell extends ConsumerWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          // Resize handle
+          GestureDetector(
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                _sidebarWidth += details.delta.dx;
+                _sidebarWidth = _sidebarWidth.clamp(_sidebarMinWidth, _sidebarMaxWidth);
+              });
+            },
+            child: MouseRegion(
+              cursor: SystemMouseCursors.resizeColumn,
+              child: Container(
+                width: 4,
+                color: AppColors.border,
+              ),
             ),
           ),
           // Main content
