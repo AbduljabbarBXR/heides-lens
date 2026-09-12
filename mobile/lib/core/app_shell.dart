@@ -8,6 +8,9 @@ import 'package:spikey/features/plan/presentation/screens/plan_screen.dart';
 import 'package:spikey/features/workflow/presentation/screens/workflow_screen.dart';
 import 'package:spikey/features/graph/presentation/screens/graph_screen.dart';
 import 'package:spikey/features/review/presentation/screens/review_screen.dart';
+import 'package:spikey/features/file_tree/presentation/widgets/file_tree_viewer.dart';
+import 'package:spikey/features/file_viewer/presentation/widgets/file_content_viewer.dart';
+import 'package:spikey/features/settings/presentation/screens/settings_screen.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
 
@@ -22,6 +25,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   double _sidebarWidth = 200;
   double _sidebarMinWidth = 72;
   double _sidebarMaxWidth = 320;
+  String? _selectedFilePath;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +66,15 @@ class _AppShellState extends ConsumerState<AppShell> {
                 _MenuButton(
                   label: 'Help',
                   onTap: () {},
+                ),
+                _MenuButton(
+                  label: 'Settings',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                    );
+                  },
                 ),
                 const Spacer(),
                 // Project name
@@ -193,9 +206,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ),
                   ),
                 ),
-                // Main content
+                // Main content area with file tree and viewer
                 Expanded(
-                  child: _buildModeContent(navState.currentMode, projectState.activeProject),
+                  child: _buildMainContent(navState.currentMode, projectState.activeProject),
                 ),
               ],
             ),
@@ -216,6 +229,69 @@ class _AppShellState extends ConsumerState<AppShell> {
       case AppMode.review:
         return const ReviewScreen();
     }
+  }
+
+  Widget _buildMainContent(AppMode mode, dynamic activeProject) {
+    if (activeProject == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.folder_open_rounded, size: 64, color: AppColors.textMuted),
+            const SizedBox(height: 16),
+            Text('Select a project to start', style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _showProjectSelector,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Open Project'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        // File tree
+        Container(
+          width: 220,
+          color: AppColors.surface,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: AppColors.border)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.folder_rounded, size: 16, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text('Explorer', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: FileTreeViewer(
+                  projectPath: activeProject.path,
+                  onFileTap: (path) => setState(() => _selectedFilePath = path),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Divider
+        Container(width: 1, color: AppColors.border),
+        // File viewer or mode content
+        if (_selectedFilePath != null)
+          Expanded(
+            child: FileContentViewer(filePath: _selectedFilePath!),
+          )
+        else
+          Expanded(child: _buildModeContent(mode, activeProject)),
+      ],
+    );
   }
 
   void _showFileMenu() {
