@@ -8,6 +8,8 @@ import 'package:spikey/features/plan/presentation/screens/plan_screen.dart';
 import 'package:spikey/features/workflow/presentation/screens/workflow_screen.dart';
 import 'package:spikey/features/graph/presentation/screens/graph_screen.dart';
 import 'package:spikey/features/review/presentation/screens/review_screen.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:path/path.dart' as p;
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -18,14 +20,14 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   double _sidebarWidth = 200;
-  double _sidebarMinWidth = 80;
+  double _sidebarMinWidth = 72;
   double _sidebarMaxWidth = 320;
 
   @override
   Widget build(BuildContext context) {
     final navState = ref.watch(navigationProvider);
     final projectState = ref.watch(projectProvider);
-    final isCompact = _sidebarWidth < 140;
+    final isCompact = _sidebarWidth <= 100;
 
     return Scaffold(
       body: Column(
@@ -51,17 +53,15 @@ class _AppShellState extends ConsumerState<AppShell> {
                 // File menu
                 _MenuButton(
                   label: 'File',
-                  onTap: () => _showProjectSelector(context, ref),
+                  onTap: _showFileMenu,
                 ),
                 _MenuButton(
                   label: 'View',
-                  onTap: () {
-                    if (isCompact) {
-                      setState(() => _sidebarWidth = 200);
-                    } else {
-                      setState(() => _sidebarWidth = 80);
-                    }
-                  },
+                  onTap: _showViewMenu,
+                ),
+                _MenuButton(
+                  label: 'Help',
+                  onTap: () {},
                 ),
                 const Spacer(),
                 // Project name
@@ -85,34 +85,97 @@ class _AppShellState extends ConsumerState<AppShell> {
                   child: Column(
                     children: [
                       const SizedBox(height: 12),
-                      // Nav items
-                      _NavItem(
-                        icon: Icons.architecture_rounded,
-                        label: 'Plan',
-                        isActive: navState.currentMode == AppMode.plan,
-                        isCompact: isCompact,
-                        onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.plan),
-                      ),
-                      _NavItem(
-                        icon: Icons.terminal_rounded,
-                        label: 'Workflow',
-                        isActive: navState.currentMode == AppMode.workflow,
-                        isCompact: isCompact,
-                        onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.workflow),
-                      ),
-                      _NavItem(
-                        icon: Icons.account_tree_rounded,
-                        label: 'Graph',
-                        isActive: navState.currentMode == AppMode.graph,
-                        isCompact: isCompact,
-                        onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.graph),
-                      ),
-                      _NavItem(
-                        icon: Icons.verified_rounded,
-                        label: 'Review',
-                        isActive: navState.currentMode == AppMode.review,
-                        isCompact: isCompact,
-                        onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.review),
+                      // Nav items - centered in compact mode
+                      if (isCompact)
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _NavIconButton(
+                                    icon: Icons.architecture_rounded,
+                                    isActive: navState.currentMode == AppMode.plan,
+                                    onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.plan),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _NavIconButton(
+                                    icon: Icons.terminal_rounded,
+                                    isActive: navState.currentMode == AppMode.workflow,
+                                    onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.workflow),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _NavIconButton(
+                                    icon: Icons.account_tree_rounded,
+                                    isActive: navState.currentMode == AppMode.graph,
+                                    onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.graph),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _NavIconButton(
+                                    icon: Icons.verified_rounded,
+                                    isActive: navState.currentMode == AppMode.review,
+                                    onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.review),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: Column(
+                            children: [
+                              _NavItem(
+                                icon: Icons.architecture_rounded,
+                                label: 'Plan',
+                                isActive: navState.currentMode == AppMode.plan,
+                                onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.plan),
+                              ),
+                              _NavItem(
+                                icon: Icons.terminal_rounded,
+                                label: 'Workflow',
+                                isActive: navState.currentMode == AppMode.workflow,
+                                onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.workflow),
+                              ),
+                              _NavItem(
+                                icon: Icons.account_tree_rounded,
+                                label: 'Graph',
+                                isActive: navState.currentMode == AppMode.graph,
+                                onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.graph),
+                              ),
+                              _NavItem(
+                                icon: Icons.verified_rounded,
+                                label: 'Review',
+                                isActive: navState.currentMode == AppMode.review,
+                                onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.review),
+                              ),
+                            ],
+                          ),
+                        ),
+                      // Bottom section: project selector + resize handle
+                      Column(
+                        children: [
+                          const Divider(height: 1, thickness: 1),
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: GestureDetector(
+                              onTap: _showProjectSelector,
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceHover,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: projectState.activeProject != null
+                                    ? Icon(Icons.folder_open_rounded, color: AppColors.primary, size: 24)
+                                    : Icon(Icons.add_rounded, color: AppColors.textMuted, size: 24),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -158,9 +221,54 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
-  void _showProjectSelector(BuildContext context, WidgetRef ref) {
+  void _showFileMenu() {
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(16, 36, 100, 0),
+      items: [
+        PopupMenuItem(
+          onTap: _showProjectSelector,
+          child: Text('Open Project', style: TextStyle(color: AppColors.textPrimary)),
+        ),
+        PopupMenuItem(
+          onTap: () {},
+          child: Text('Close Project', style: TextStyle(color: AppColors.textPrimary)),
+        ),
+        PopupMenuItem(
+          onTap: () {},
+          child: Text('Save Workspace', style: TextStyle(color: AppColors.textPrimary)),
+        ),
+      ],
+    );
+  }
+
+  void _showViewMenu() {
+    final isCompact = _sidebarWidth <= 100;
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(70, 36, 154, 0),
+      items: [
+        PopupMenuItem(
+          onTap: () {
+            setState(() => _sidebarWidth = isCompact ? 200 : 72);
+          },
+          child: Text(isCompact ? 'Expand Sidebar' : 'Compact Sidebar', style: TextStyle(color: AppColors.textPrimary)),
+        ),
+        PopupMenuItem(
+          onTap: () {},
+          child: Text('Reset Layout', style: TextStyle(color: AppColors.textPrimary)),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showProjectSelector() async {
     final projectState = ref.read(projectProvider);
-    showDialog(
+    
+    // Show dialog to choose between existing projects or add new
+    if (!mounted) return;
+    
+    await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surface,
@@ -178,15 +286,15 @@ class _AppShellState extends ConsumerState<AppShell> {
                   onTap: () {
                     ref.read(projectProvider.notifier).setActiveProject(p);
                     ref.invalidate(indexedFilesProvider);
-                    Navigator.pop(context);
+                    Navigator.pop(context, p.path);
                   },
                 ),
               ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
               onPressed: () async {
-                // TODO: implement folder picker
                 Navigator.pop(context);
+                await _addNewProject();
               },
               icon: const Icon(Icons.add_rounded, size: 20),
               label: const Text('Add Project'),
@@ -195,6 +303,30 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
       ),
     );
+  }
+
+  Future<void> _addNewProject() async {
+    final String? directoryPath = await getDirectoryPath();
+    if (directoryPath == null) return;
+    
+    final projectName = p.basename(directoryPath);
+    final project = Project(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: projectName,
+      path: directoryPath,
+      lastOpened: DateTime.now(),
+    );
+    
+    ref.read(projectProvider.notifier).addProject(project);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Project "$projectName" added'),
+          backgroundColor: AppColors.surface,
+        ),
+      );
+    }
   }
 }
 
@@ -221,18 +353,14 @@ class _MenuButton extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _NavIconButton extends StatelessWidget {
   final IconData icon;
-  final String label;
   final bool isActive;
-  final bool isCompact;
   final VoidCallback onTap;
 
-  const _NavItem({
+  const _NavIconButton({
     required this.icon,
-    required this.label,
     required this.isActive,
-    required this.isCompact,
     required this.onTap,
   });
 
@@ -241,14 +369,39 @@ class _NavItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: EdgeInsets.symmetric(
-          horizontal: isCompact ? 8 : 12,
-          vertical: 4,
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.surfaceHover : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: isActive ? Border.all(color: AppColors.primary, width: 1) : null,
         ),
-        padding: EdgeInsets.symmetric(
-          vertical: 12,
-          horizontal: isCompact ? 8 : 12,
-        ),
+        child: Icon(icon, color: isActive ? AppColors.primary : AppColors.textMuted, size: 20),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
         decoration: BoxDecoration(
           color: isActive ? AppColors.surfaceHover : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
@@ -257,19 +410,14 @@ class _NavItem extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon, color: isActive ? AppColors.primary : AppColors.textMuted, size: 22),
-            if (!isCompact) ...[
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isActive ? AppColors.primary : AppColors.textMuted,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: isActive ? AppColors.primary : AppColors.textMuted,
               ),
-            ],
+            ),
           ],
         ),
       ),
