@@ -1,0 +1,260 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:spikey/shared/themes/app_colors.dart';
+import 'package:spikey/features/plan/data/models/architecture_scaffold.dart';
+
+class PlanScreen extends ConsumerStatefulWidget {
+  const PlanScreen({super.key});
+
+  @override
+  ConsumerState<PlanScreen> createState() => _PlanScreenState();
+}
+
+class _PlanScreenState extends ConsumerState<PlanScreen> {
+  final TextEditingController _promptController = TextEditingController();
+  bool _isGenerating = false;
+  ArchitectureScaffold? _scaffold;
+
+  void _generateScaffold() {
+    final prompt = _promptController.text.trim();
+    if (prompt.isEmpty) return;
+
+    setState(() => _isGenerating = true);
+
+    // Simulate generation (in real app, this calls the analysis engine)
+    Future.delayed(const Duration(seconds: 1), () {
+      setState(() {
+        _scaffold = ArchitectureScaffold.generate(prompt);
+        _isGenerating = false;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Row(
+        children: [
+          // Left panel: Input + controls
+          Expanded(
+            flex: 4,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Architecture Planner', style: AppTextStyles.h2),
+                      const SizedBox(height: 8),
+                      Text('Describe your system and we\'ll scaffold the architecture with edge cases.',
+                          style: AppTextStyles.body),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: TextField(
+                    controller: _promptController,
+                    maxLines: 4,
+                    style: AppTextStyles.body,
+                    decoration: InputDecoration(
+                      hintText: 'e.g., "Food delivery app with drivers, restaurants, real-time tracking"',
+                      hintStyle: const TextStyle(color: AppColors.textMuted),
+                      suffixIcon: _isGenerating
+                          ? const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                            )
+                          : IconButton(
+                              onPressed: _generateScaffold,
+                              icon: const Icon(Icons.auto_awesome_rounded, color: AppColors.primary),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _PresetChip(label: 'E-commerce', onTap: () => _promptController.text = 'E-commerce platform with users, products, cart, checkout, payments'),
+                      _PresetChip(label: 'SaaS', onTap: () => _promptController.text = 'SaaS app with multi-tenancy, auth, subscriptions, API'),
+                      _PresetChip(label: 'Social', onTap: () => _promptController.text = 'Social network with users, posts, feeds, notifications, real-time chat'),
+                      _PresetChip(label: 'IoT', onTap: () => _promptController.text = 'IoT platform with devices, telemetry, alerts, dashboards'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                if (_scaffold != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.download_rounded, size: 18),
+                          label: const Text('Export'),
+                        ),
+                        const SizedBox(width: 12),
+                        OutlinedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.code_rounded, size: 18),
+                          label: const Text('Generate Code'),
+                        ),
+                        const SizedBox(width: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => setState(() => _scaffold = null),
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Clear'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                Expanded(
+                  child: _scaffold != null
+                      ? SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _ScaffoldView(scaffold: _scaffold!),
+                        )
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.architecture_rounded, size: 64, color: AppColors.textMuted),
+                              const SizedBox(height: 16),
+                              Text('Enter a description to generate architecture',
+                                  style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
+                            ],
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PresetChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _PresetChip({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+      ),
+    );
+  }
+}
+
+class _ScaffoldView extends StatelessWidget {
+  final ArchitectureScaffold scaffold;
+
+  const _ScaffoldView({required this.scaffold});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Architecture Scaffold', style: AppTextStyles.h3),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Text(scaffold.diagram, style: const TextStyle(fontFamily: 'JetBrainsMono', fontSize: 13, color: AppColors.textPrimary)),
+        ),
+        const SizedBox(height: 24),
+        Text('Edge Cases & Risks', style: AppTextStyles.h3),
+        const SizedBox(height: 12),
+        ...scaffold.edgeCases.map(
+          (edge) => Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _getSeverityColor(edge.severity)),
+            ),
+            child: Row(
+              children: [
+                Icon(_getSeverityIcon(edge.severity), color: _getSeverityColor(edge.severity), size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(edge.title, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary, fontSize: 13)),
+                      const SizedBox(height: 4),
+                      Text(edge.description, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text('Recommended Patterns', style: AppTextStyles.h3),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: scaffold.patterns
+              .map((p) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.primary),
+                    ),
+                    child: Text(p, style: const TextStyle(color: AppColors.primary, fontSize: 12)),
+                  ))
+              .toList(),
+        ),
+      ],
+    );
+  }
+
+  Color _getSeverityColor(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'critical': return AppColors.error;
+      case 'warning': return AppColors.warning;
+      case 'info': return AppColors.info;
+      default: return AppColors.textMuted;
+    }
+  }
+
+  IconData _getSeverityIcon(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'critical': return Icons.error_rounded;
+      case 'warning': return Icons.warning_rounded;
+      case 'info': return Icons.info_rounded;
+      default: return Icons.help_rounded;
+    }
+  }
+}
