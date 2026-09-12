@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
+import 'package:spikey/core/providers/findings_provider.dart';
+import 'package:spikey/core/providers/project_provider.dart';
 
 class ReviewScreen extends ConsumerWidget {
   const ReviewScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final findings = _getSampleFindings();
+    final projectState = ref.watch(projectProvider);
+    final activeProject = projectState.activeProject;
+
+    if (activeProject == null) {
+      return const Center(
+        child: Text('Select a project to view findings', style: TextStyle(color: AppColors.textMuted)),
+      );
+    }
+
+    final findingsAsync = ref.watch(findingsProvider(activeProject.path));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -26,60 +37,67 @@ class ReviewScreen extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Text('Review', style: AppTextStyles.h3),
                 const Spacer(),
-                _SeverityBadge(count: findings.where((f) => f['severity'] == 'critical').length, label: 'Critical', color: AppColors.error),
-                const SizedBox(width: 8),
-                _SeverityBadge(count: findings.where((f) => f['severity'] == 'warning').length, label: 'Warnings', color: AppColors.warning),
-                const SizedBox(width: 8),
-                _SeverityBadge(count: findings.where((f) => f['severity'] == 'info').length, label: 'Info', color: AppColors.info),
+                findingsAsync.when(
+                  data: (findings) {
+                    final criticalCount = findings.where((f) => f['severity'] == 'critical').length;
+                    final warningCount = findings.where((f) => f['severity'] == 'warning').length;
+                    final infoCount = findings.where((f) => f['severity'] == 'info').length;
+                    return Row(
+                      children: [
+                        _SeverityBadge(count: criticalCount, label: 'Critical', color: AppColors.error),
+                        const SizedBox(width: 8),
+                        _SeverityBadge(count: warningCount, label: 'Warnings', color: AppColors.warning),
+                        const SizedBox(width: 8),
+                        _SeverityBadge(count: infoCount, label: 'Info', color: AppColors.info),
+                      ],
+                    );
+                  },
+                  loading: () => const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                  error: (_, __) => const Icon(Icons.error_rounded, size: 16, color: AppColors.error),
+                ),
               ],
             ),
           ),
           // Findings list
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: findings.length,
-              itemBuilder: (context, index) {
-                final finding = findings[index];
-                return _FindingCard(finding: finding);
+            child: findingsAsync.when(
+              data: (findings) {
+                if (findings.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle_rounded, size: 48, color: AppColors.success),
+                        const SizedBox(height: 16),
+                        Text('No findings found', style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
+                      ],
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: findings.length,
+                  itemBuilder: (context, index) {
+                    final finding = findings[index];
+                    return _FindingCard(finding: finding);
+                  },
+                );
               },
+              loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+              error: (error, _) => Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.error_rounded, size: 48, color: AppColors.error),
+                    const SizedBox(height: 16),
+                    Text('Error: $error', style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
-  }
-
-  List<Map<String, dynamic>> _getSampleFindings() {
-    return [
-      {
-        'id': '1',
-        'severity': 'critical',
-        'category': 'Security',
-        'title': 'Hardcoded password',
-        'description': 'Hardcoded credentials should never be committed to source control.',
-        'location': 'index.js:9',
-        'suggestion': 'Move credentials to environment variables.',
-      },
-      {
-        'id': '2',
-        'severity': 'warning',
-        'category': 'Performance',
-        'title': 'Missing error handling',
-        'description': 'Async function without try-catch may crash on failure.',
-        'location': 'api/users.ts:45',
-        'suggestion': 'Add try-catch with proper error propagation.',
-      },
-      {
-        'id': '3',
-        'severity': 'info',
-        'category': 'Style',
-        'title': 'Consider type guards',
-        'description': 'Adding type guards improves type safety.',
-        'location': 'utils/helpers.ts:12',
-        'suggestion': 'Use Zod or io-ts for runtime validation.',
-      },
-    ];
   }
 }
 
@@ -95,7 +113,7 @@ class _SeverityBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color),
       ),
@@ -125,7 +143,7 @@ class _FindingCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
