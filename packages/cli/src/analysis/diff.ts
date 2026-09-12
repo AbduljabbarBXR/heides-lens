@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 
 export async function getLastDiff(projectPath: string, commit: string = 'HEAD~1'): Promise<DiffResult> {
   try {
-    const statOutput = execSync(`git -C "${projectPath}" diff --stat ${commit}`, { encoding: 'utf-8' });
+    const statOutput = execSync(`git -C "${projectPath}" diff --stat ${commit} 2>/dev/null || git -C "${projectPath}" diff --stat HEAD`, { encoding: 'utf-8' });
     const files: DiffFile[] = [];
     const lines = statOutput.trim().split('\n');
     for (const line of lines) {
@@ -17,7 +17,7 @@ export async function getLastDiff(projectPath: string, commit: string = 'HEAD~1'
         const status = additions > 0 && deletions > 0 ? 'modified' : additions > 0 ? 'added' : 'deleted';
         let diffText = '';
         try {
-          diffText = execSync(`git -C "${projectPath}" diff ${commit} -- "${filePath}"`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+          diffText = execSync(`git -C "${projectPath}" diff ${commit} -- "${filePath}" 2>/dev/null || git -C "${projectPath}" diff HEAD -- "${filePath}"`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
         } catch { diffText = ''; }
         files.push({
           path: filePath,
