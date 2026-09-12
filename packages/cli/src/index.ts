@@ -6,6 +6,7 @@ import { graphCommand } from './commands/graph.js';
 import { reviewCommand } from './commands/review.js';
 import { pluginCommands } from './commands/plugin.js';
 import { configCommand } from './commands/config.js';
+import { launchTUI } from './tui/index.js';
 
 program
   .name('vybecode')
@@ -19,4 +20,12 @@ program.addCommand(reviewCommand);
 program.addCommand(pluginCommands);
 program.addCommand(configCommand);
 
-program.parse();
+const args = process.argv.slice(2);
+if (args.length === 0) {
+  launchTUI().catch((err) => {
+    console.error('Failed to launch TUI:', err);
+    program.parse();
+  });
+} else {
+  program.parse();
+}
