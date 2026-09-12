@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum AppMode { plan, workflow, graph, review }
+enum AppMode { plan, workflow, graph, review, plugins }
 
 class NavigationState {
   final AppMode currentMode;

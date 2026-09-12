@@ -8,6 +8,7 @@ import 'package:spikey/features/plan/presentation/screens/plan_screen.dart';
 import 'package:spikey/features/workflow/presentation/screens/workflow_screen.dart';
 import 'package:spikey/features/graph/presentation/screens/graph_screen.dart';
 import 'package:spikey/features/review/presentation/screens/review_screen.dart';
+import 'package:spikey/features/plugins/presentation/screens/plugins_screen.dart';
 import 'package:spikey/features/file_tree/presentation/widgets/file_tree_viewer.dart';
 import 'package:spikey/features/file_viewer/presentation/widgets/file_content_viewer.dart';
 import 'package:spikey/features/settings/presentation/screens/settings_screen.dart';
@@ -123,11 +124,17 @@ class _AppShellState extends ConsumerState<AppShell> {
                                 onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.graph),
                               ),
                               const SizedBox(height: 6),
-                              _NavIconButton(
-                                icon: Icons.verified_rounded,
-                                isActive: navState.currentMode == AppMode.review,
-                                onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.review),
-                              ),
+                                  _NavIconButton(
+                                    icon: Icons.verified_rounded,
+                                    isActive: navState.currentMode == AppMode.review,
+                                    onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.review),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  _NavIconButton(
+                                    icon: Icons.extension_rounded,
+                                    isActive: navState.currentMode == AppMode.plugins,
+                                    onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.plugins),
+                                  ),
                               const SizedBox(height: 8),
                             ],
                           ),
@@ -159,6 +166,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                                 label: 'Review',
                                 isActive: navState.currentMode == AppMode.review,
                                 onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.review),
+                              ),
+                              _NavItem(
+                                icon: Icons.extension_rounded,
+                                label: 'Plugins',
+                                isActive: navState.currentMode == AppMode.plugins,
+                                onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.plugins),
                               ),
                             ],
                           ),
@@ -228,6 +241,8 @@ class _AppShellState extends ConsumerState<AppShell> {
         return const GraphScreen();
       case AppMode.review:
         return const ReviewScreen();
+      case AppMode.plugins:
+        return const PluginsScreen();
     }
   }
 
