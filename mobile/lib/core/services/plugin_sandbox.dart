@@ -22,6 +22,8 @@ class PluginSandbox {
     return result;
   }
 
+  // TODO: Implement actual sandbox execution — load plugin WASM/JS, enforce
+  // permissions, pipe context through, and return real findings.
   Future<Map<String, dynamic>> _executeInSandbox(String pluginId, String hookName, Map<String, dynamic> context) async {
     return {
       'pluginId': pluginId,

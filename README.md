@@ -9,11 +9,46 @@
 
 Terminal CLI + cross-platform desktop/mobile app with architecture planning, live code analysis, neural dependency graphs, and a plugin marketplace.
 
-> Screenshots coming soon. Add your own captures to `assets/images/`.
+## Screenshots
+
+<p align="center">
+  <img src="assets/images/screens/welcome.png" alt="Welcome & Onboarding" width="45%"/>
+  <img src="assets/images/screens/explorer.png" alt="Explorer / File Tree" width="45%"/>
+</p>
+
+<p align="center">
+  <img src="assets/images/screens/graph.png" alt="Neural Graph" width="45%"/>
+  <img src="assets/images/screens/review.png" alt="Review / Findings" width="45%"/>
+</p>
+
+<p align="center">
+  <img src="assets/images/screens/workflow.png" alt="Workflow / Chat" width="45%"/>
+  <img src="assets/images/screens/plugins.png" alt="Plugin Marketplace" width="45%"/>
+</p>
+
+<p align="center">
+  <img src="assets/images/screens/plan.png" alt="Plan Mode" width="45%"/>
+  <img src="assets/images/screens/settings.png" alt="Settings" width="45%"/>
+</p>
+
+> Screenshots are rendered from the real UI via golden tests (`mobile/test/screenshots/`). Regenerate with `flutter test test/screenshots --update-goldens`.
+
+## Documentation
+
+- [User Guide](docs/user-guide.md) — visual walkthrough of every app section
+- [Plugin API](docs/plugin-api.md) — manifest format, hooks, permissions
+- [Hook Reference](docs/hook-reference.md) — every hook and its arguments
+- [Security](docs/security.md) — threat model and hardening notes
+- [Architecture](ARCHITECTURE.md) — full design document
+
+The desktop app ships with an in-app documentation viewer:
+**Help → Documentation** (or the Documentation link in the welcome dialog).
 
 ## Table of Contents
 
+- [Screenshots](#screenshots)
 - [Features](#features)
+- [Documentation](#documentation)
 - [Architecture](#architecture)
 - [Installation](#installation)
   - [Terminal CLI](#terminal-cli)

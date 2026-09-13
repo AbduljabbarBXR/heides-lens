@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
+import 'package:spikey/core/providers/settings_provider.dart';
+import 'package:spikey/core/providers/project_provider.dart';
+import 'package:spikey/core/services/llm_service.dart';
+import 'package:spikey/core/services/project_context.dart';
+import 'package:spikey/core/providers/indexing_provider.dart';
 
 class WorkflowScreen extends ConsumerStatefulWidget {
   const WorkflowScreen({super.key});
@@ -12,9 +17,55 @@ class WorkflowScreen extends ConsumerStatefulWidget {
 class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
   final TextEditingController _inputController = TextEditingController();
   final List<ChatMessage> _messages = [];
+  final ScrollController _scrollController = ScrollController();
   bool _isProcessing = false;
+  String? _projectContext;
 
-  void _sendMessage() {
+  @override
+  void initState() {
+    super.initState();
+    _loadProjectContext();
+  }
+
+  Future<void> _loadProjectContext() async {
+    final projectState = ref.read(projectProvider);
+    final project = projectState.activeProject;
+    if (project == null) return;
+
+    try {
+      final engine = ref.read(indexingEngineProvider);
+      final context = await ProjectContext.buildContext(
+        projectPath: project.path,
+        engine: engine,
+      );
+      if (mounted) {
+        setState(() => _projectContext = context);
+      }
+    } catch (e) {
+      // Context loading failed, continue without it
+    }
+  }
+
+  @override
+  void dispose() {
+    _inputController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
 
@@ -24,41 +75,67 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
     });
 
     _inputController.clear();
+    _scrollToBottom();
 
-    // Simulate response
-    Future.delayed(const Duration(milliseconds: 800), () {
+    final config = ref.read(settingsProvider);
+
+    final chatHistory = <Map<String, String>>[];
+
+    // Build system prompt with project context
+    final systemPrompt = StringBuffer();
+    systemPrompt.writeln('You are Spikey, an AI coding assistant embedded in the Spikey app. You help developers analyze code, find bugs, suggest improvements, and understand architecture.');
+    systemPrompt.writeln();
+
+    if (_projectContext != null && _projectContext!.isNotEmpty) {
+      systemPrompt.writeln('You have access to the current project context. Use it to give specific, relevant answers about the codebase.');
+      systemPrompt.writeln();
+      systemPrompt.writeln(_projectContext);
+    } else {
+      systemPrompt.writeln('No project is currently loaded. Ask the user to open a project first, or provide general coding help.');
+    }
+
+    systemPrompt.writeln();
+    systemPrompt.writeln('IMPORTANT: When referencing files, use their full paths. Format code blocks with triple backticks. Be concise and actionable.');
+
+    chatHistory.add({
+      'role': 'system',
+      'content': systemPrompt.toString(),
+    });
+
+    // Add conversation history
+    for (final msg in _messages) {
+      chatHistory.add({
+        'role': msg.role == MessageRole.user ? 'user' : 'assistant',
+        'content': msg.content,
+      });
+    }
+
+    final response = await LLMService.chat(
+      provider: config.provider,
+      model: config.model,
+      apiKey: config.apiKey,
+      messages: chatHistory,
+    );
+
+    if (mounted) {
       setState(() {
-        _messages.add(ChatMessage(
-          role: MessageRole.assistant,
-          content: _generateResponse(text),
-        ));
+        _messages.add(ChatMessage(role: MessageRole.assistant, content: response));
         _isProcessing = false;
       });
-    });
-  }
-
-  String _generateResponse(String input) {
-    final lower = input.toLowerCase();
-    if (lower.startsWith('analyze')) {
-      return 'Running analysis on current project...\n\nFound 3 issues:\n• [critical] Hardcoded password in index.js:9\n• [warning] Missing error handling in api/users.ts:45\n• [info] Consider adding type guards in utils/helpers.ts:12';
-    } else if (lower.startsWith('diff')) {
-      return 'Showing diff for last commit...\n\nFiles changed: 2\n+45 -12\n\nindex.js | 3 +++\napi/users.ts | 42 ++++++++++++++++++++++++++++++++';
-    } else if (lower.startsWith('graph')) {
-      return 'Dependency graph:\n\nindex.js → express\napi/users.ts → database\nutils/helpers.ts → lodash\n\n3 nodes, 3 edges';
-    } else if (lower.startsWith('/help')) {
-      return 'Commands:\n• analyze [path] - Full analysis\n• diff [path] - Show diff\n• graph [path] - Dependency graph\n• /clear - Clear chat';
-    } else {
-      return 'I can help you analyze code, show diffs, and visualize dependencies. Type /help for commands or describe what you want to build.';
+      _scrollToBottom();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final config = ref.watch(settingsProvider);
+    final projectState = ref.watch(projectProvider);
+    final project = projectState.activeProject;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.all(16),
             decoration: const BoxDecoration(
@@ -71,6 +148,52 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
                 const SizedBox(width: 12),
                 Text('Workflow', style: AppTextStyles.h3),
                 const Spacer(),
+                if (project != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceHover,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.folder_rounded, size: 12, color: AppColors.textSecondary),
+                        const SizedBox(width: 4),
+                        Text(project.name, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _projectContext != null ? Colors.green.withOpacity(0.15) : AppColors.surfaceHover,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _projectContext != null ? Colors.green.withOpacity(0.3) : AppColors.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _projectContext != null ? Icons.visibility : Icons.visibility_off,
+                        size: 12,
+                        color: _projectContext != null ? Colors.green : AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _projectContext != null ? 'AI can see project' : 'No project loaded',
+                        style: TextStyle(
+                          color: _projectContext != null ? Colors.green : AppColors.textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
@@ -78,12 +201,14 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: const Text('openai / gpt-4o', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  child: Text(
+                    '${config.provider} / ${config.model}',
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  ),
                 ),
               ],
             ),
           ),
-          // Messages
           Expanded(
             child: _messages.isEmpty
                 ? Center(
@@ -92,11 +217,33 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
                       children: [
                         Icon(Icons.auto_awesome_rounded, size: 48, color: AppColors.textMuted),
                         const SizedBox(height: 16),
-                        Text('Start typing to analyze your code', style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
+                        Text(
+                          project != null
+                              ? 'Ask about your ${project.name} codebase'
+                              : 'Start typing to analyze your code',
+                          style: AppTextStyles.body.copyWith(color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: 8),
+                        if (project != null && _projectContext != null)
+                          Text(
+                            'Project context loaded (${_projectContext!.length} chars)',
+                            style: TextStyle(color: Colors.green.withOpacity(0.7), fontSize: 12),
+                          )
+                        else if (project != null)
+                          Text(
+                            'Loading project context...',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                          )
+                        else
+                          Text(
+                            'Open a project first to enable context-aware AI',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                          ),
                       ],
                     ),
                   )
                 : ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.all(16),
                     itemCount: _messages.length + (_isProcessing ? 1 : 0),
                     itemBuilder: (context, index) {
@@ -104,11 +251,10 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
                         return const _TypingIndicator();
                       }
                       final msg = _messages[index];
-                      return _ChatBubble(message: msg);
+                      return _ChatBubble(message: msg, index: index);
                     },
                   ),
           ),
-          // Input
           Container(
             padding: const EdgeInsets.all(16),
             decoration: const BoxDecoration(
@@ -126,8 +272,11 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
                       hintText: 'Type a command or describe what you want...',
                       hintStyle: const TextStyle(color: AppColors.textMuted),
                       suffixIcon: IconButton(
-                        onPressed: _sendMessage,
-                        icon: const Icon(Icons.send_rounded, color: AppColors.primary),
+                        onPressed: _isProcessing ? null : _sendMessage,
+                        icon: Icon(
+                          Icons.send_rounded,
+                          color: _isProcessing ? AppColors.textMuted : AppColors.primary,
+                        ),
                       ),
                     ),
                   ),
@@ -141,31 +290,67 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
   }
 }
 
-class _ChatBubble extends StatelessWidget {
+class _ChatBubble extends StatefulWidget {
   final ChatMessage message;
+  final int index;
 
-  const _ChatBubble({required this.message});
+  const _ChatBubble({required this.message, required this.index});
+
+  @override
+  State<_ChatBubble> createState() => _ChatBubbleState();
+}
+
+class _ChatBubbleState extends State<_ChatBubble> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isUser = message.role == MessageRole.user;
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-        decoration: BoxDecoration(
-          color: isUser ? AppColors.primary : AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: isUser ? null : Border.all(color: AppColors.border),
-        ),
-        child: Text(
-          message.content,
-          style: TextStyle(
-            color: isUser ? AppColors.background : AppColors.textPrimary,
-            fontSize: 14,
-            height: 1.5,
+    final isUser = widget.message.role == MessageRole.user;
+    return SlideTransition(
+      position: _slideAnimation,
+      child: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Align(
+          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+            decoration: BoxDecoration(
+              color: isUser ? AppColors.primary : AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: isUser ? null : Border.all(color: AppColors.border),
+            ),
+            child: _MarkdownContent(
+              content: widget.message.content,
+              textColor: isUser ? AppColors.background : AppColors.textPrimary,
+              isUser: isUser,
+            ),
           ),
         ),
       ),
@@ -173,9 +358,14 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-class _TypingIndicator extends StatelessWidget {
+class _TypingIndicator extends StatefulWidget {
   const _TypingIndicator();
 
+  @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator> {
   @override
   Widget build(BuildContext context) {
     return Align(
@@ -191,7 +381,11 @@ class _TypingIndicator extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+            _AnimatedDot(delay: 0),
+            const SizedBox(width: 4),
+            _AnimatedDot(delay: 200),
+            const SizedBox(width: 4),
+            _AnimatedDot(delay: 400),
             const SizedBox(width: 12),
             Text('Thinking...', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
           ],
@@ -199,6 +393,154 @@ class _TypingIndicator extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AnimatedDot extends StatefulWidget {
+  final int delay;
+  const _AnimatedDot({required this.delay});
+
+  @override
+  State<_AnimatedDot> createState() => _AnimatedDotState();
+}
+
+class _AnimatedDotState extends State<_AnimatedDot> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
+class _MarkdownContent extends StatelessWidget {
+  final String content;
+  final Color textColor;
+  final bool isUser;
+
+  const _MarkdownContent({required this.content, required this.textColor, required this.isUser});
+
+  @override
+  Widget build(BuildContext context) {
+    final segments = _parseMarkdown(content);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: segments.map((seg) {
+        if (seg.isCode) {
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color: isUser ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (seg.language.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                    ),
+                    child: Text(
+                      seg.language,
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SelectableText(
+                    seg.text,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      color: Colors.greenAccent.shade100,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: SelectableText(
+            seg.text,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  List<_MarkdownSegment> _parseMarkdown(String text) {
+    final segments = <_MarkdownSegment>[];
+    final codeBlockRegex = RegExp(r'```(\w*)\n([\s\S]*?)```', multiLine: true);
+    int lastEnd = 0;
+
+    for (final match in codeBlockRegex.allMatches(text)) {
+      if (match.start > lastEnd) {
+        segments.add(_MarkdownSegment(text: text.substring(lastEnd, match.start), isCode: false));
+      }
+      final lang = match.group(1) ?? '';
+      final code = match.group(2)?.trimRight() ?? '';
+      segments.add(_MarkdownSegment(text: code, isCode: true, language: lang));
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < text.length) {
+      segments.add(_MarkdownSegment(text: text.substring(lastEnd), isCode: false));
+    }
+
+    return segments.isEmpty ? [_MarkdownSegment(text: text, isCode: false)] : segments;
+  }
+}
+
+class _MarkdownSegment {
+  final String text;
+  final bool isCode;
+  final String language;
+
+  _MarkdownSegment({required this.text, required this.isCode, this.language = ''});
 }
 
 class ChatMessage {

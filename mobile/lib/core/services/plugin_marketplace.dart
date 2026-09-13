@@ -4,6 +4,10 @@ import 'package:http/http.dart' as http;
 class PluginMarketplace {
   static const String registryUrl = 'https://registry.spikey.dev';
   
+  Future<List<Map<String, dynamic>>> getAllPlugins() async {
+    return searchPlugins('');
+  }
+
   Future<List<Map<String, dynamic>>> searchPlugins(String query) async {
     try {
       final response = await http.get(Uri.parse('$registryUrl/api/plugins?q=$query'));

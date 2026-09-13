@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 
 class AppConfig {
@@ -28,7 +29,7 @@ class SettingsNotifier extends StateNotifier<AppConfig> {
   SettingsNotifier({FlutterSecureStorage? secureStorage})
       : _secureStorage = secureStorage ?? const FlutterSecureStorage(),
         super(const AppConfig()) {
-    _loadApiKey();
+    _loadAll();
   }
 
   final FlutterSecureStorage _secureStorage;
@@ -59,12 +60,29 @@ class SettingsNotifier extends StateNotifier<AppConfig> {
     return null;
   }
 
-  Future<void> _loadApiKey() async {
+  Future<void> _loadAll() async {
     try {
       final stored = await _secureStorage.read(key: 'apiKey') ?? '';
-      final envKey = _envApiKey(state.provider);
-      final apiKey = envKey ?? stored;
-      state = state.copyWith(apiKey: apiKey);
+      final prefs = await SharedPreferences.getInstance();
+      final savedProvider = prefs.getString('settings_provider') ?? 'openrouter';
+      final savedModel = prefs.getString('settings_model') ?? 'openai/gpt-4o';
+
+      // Auto-set OpenRouter key from environment or use stored key
+      String apiKey = stored;
+      if (apiKey.isEmpty) {
+        final envKey = _envApiKey(savedProvider);
+        apiKey = envKey ?? '';
+      }
+
+      state = AppConfig(provider: savedProvider, model: savedModel, apiKey: apiKey);
+    } on Exception catch (_) {}
+  }
+
+  Future<void> _persistSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('settings_provider', state.provider);
+      await prefs.setString('settings_model', state.model);
     } on Exception catch (_) {}
   }
 
@@ -72,10 +90,12 @@ class SettingsNotifier extends StateNotifier<AppConfig> {
     final models = _getModelsForProvider(provider);
     final envKey = _envApiKey(provider);
     state = state.copyWith(provider: provider, model: models.first, apiKey: envKey ?? state.apiKey);
+    _persistSettings();
   }
 
   void setModel(String model) {
     state = state.copyWith(model: model);
+    _persistSettings();
   }
 
   Future<void> setApiKey(String apiKey) async {

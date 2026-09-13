@@ -3,6 +3,7 @@ import { getLastDiff } from './diff.js';
 import { buildDependencyGraph } from './graph.js';
 import { getProvider } from '../ai/providers.js';
 import { getPlainConfig, secureGet } from '../commands/secureStorage.js';
+import path from 'path';
 
 export async function analyzeProject(projectPath: string, options: {
   runPlugins: boolean;
@@ -27,10 +28,11 @@ export async function analyzeProject(projectPath: string, options: {
     llmFindings = await runLLMReview(diff, graph, findings);
   }
 
+  const projectName = path.basename(projectPath);
   return {
     project: {
-      id: 'demo',
-      name: 'demo',
+      id: projectName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      name: projectName,
       path: projectPath,
       language: ['typescript'],
       lastAnalyzed: new Date(),

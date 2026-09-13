@@ -361,8 +361,14 @@ class IndexingEngine {
               'last_indexed': DateTime.now().millisecondsSinceEpoch,
             });
 
+      // Delete old symbols/imports/calls/findings before re-inserting
       if (existing != null) {
-        await db.deleteFile(fileId);
+        await db.db.then((d) async {
+          await d.delete('calls', where: 'file_id = ?', whereArgs: [fileId]);
+          await d.delete('imports', where: 'from_file = ?', whereArgs: [fileId]);
+          await d.delete('symbols', where: 'file_id = ?', whereArgs: [fileId]);
+          await d.delete('findings', where: 'file_id = ?', whereArgs: [fileId]);
+        });
       }
 
       for (final symbol in analysis['symbols'] as List<Map<String, dynamic>>) {
@@ -412,8 +418,10 @@ class IndexingEngine {
   Future<void> _removeDeletedFiles(String projectPath, List<String> currentFiles) async {
     final allFiles = await db.getFiles();
     for (final file in allFiles) {
-      final fullPath = p.join(projectPath, file['path'] as String);
-      if (!currentFiles.contains(fullPath)) {
+      final relPath = file['path'] as String;
+      final normalizedDbPath = p.separator == '/' ? relPath : relPath.replaceAll('/', p.separator);
+      final found = currentFiles.any((f) => p.relative(f, from: projectPath) == normalizedDbPath);
+      if (!found) {
         await db.deleteFile(file['id'] as int);
       }
     }

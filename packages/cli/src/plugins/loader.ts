@@ -1,11 +1,12 @@
 import { PluginManifest } from '../models/types.js';
 import fs from 'fs';
 import path from 'path';
+import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const PLUGINS_DIR = path.join(process.cwd(), 'plugins');
+const PLUGINS_DIR = path.join(homedir(), '.spikey', 'plugins');
 const BUILTIN_DIR = path.join(__dirname, '..', 'plugins');
 
 const ALLOWED_HOOKS = new Set([

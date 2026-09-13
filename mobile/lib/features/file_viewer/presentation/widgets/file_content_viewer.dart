@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/vs2015.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
@@ -20,6 +19,7 @@ class _FileContentViewerState extends State<FileContentViewer> {
   late TextEditingController _controller;
   String _content = '';
   bool _isLoading = true;
+  bool _hasUnsavedChanges = false;
 
   @override
   void initState() {
@@ -32,14 +32,56 @@ class _FileContentViewerState extends State<FileContentViewer> {
   void didUpdateWidget(covariant FileContentViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.filePath != widget.filePath) {
-      _loadContent();
+      if (_hasUnsavedChanges) {
+        _showUnsavedDialog();
+      } else {
+        _loadContent();
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _showUnsavedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Unsaved Changes', style: TextStyle(color: AppColors.textPrimary)),
+        content: const Text('You have unsaved changes. Discard them?', style: TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _loadContent();
+            },
+            child: const Text('Discard', style: TextStyle(color: AppColors.error)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _saveFile().then((_) => _loadContent());
+            },
+            child: const Text('Save', style: TextStyle(color: AppColors.success)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadContent() async {
     setState(() {
       _isLoading = true;
       _isEditing = false;
+      _hasUnsavedChanges = false;
     });
     try {
       if (widget.diffContent != null) {
@@ -73,6 +115,7 @@ class _FileContentViewerState extends State<FileContentViewer> {
       setState(() {
         _content = _controller.text;
         _isEditing = false;
+        _hasUnsavedChanges = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,9 +146,8 @@ class _FileContentViewerState extends State<FileContentViewer> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // File header
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: const BoxDecoration(
             color: AppColors.surface,
             border: Border(bottom: BorderSide(color: AppColors.border)),
@@ -117,10 +159,23 @@ class _FileContentViewerState extends State<FileContentViewer> {
               Expanded(
                 child: Text(
                   widget.filePath.split('/').last,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _hasUnsavedChanges ? AppColors.warning : AppColors.textPrimary,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (_hasUnsavedChanges)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(color: AppColors.warning, shape: BoxShape.circle),
+                  ),
+                ),
               Text(
                 '${lines.length} lines',
                 style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
@@ -130,13 +185,13 @@ class _FileContentViewerState extends State<FileContentViewer> {
                 IconButton(
                   icon: const Icon(Icons.edit_rounded, size: 16, color: AppColors.textSecondary),
                   onPressed: () => setState(() => _isEditing = true),
-                  tooltip: 'Edit',
+                  tooltip: 'Edit (Ctrl+E)',
                 )
               else ...[
                 IconButton(
                   icon: const Icon(Icons.save_rounded, size: 16, color: AppColors.success),
                   onPressed: _saveFile,
-                  tooltip: 'Save',
+                  tooltip: 'Save (Ctrl+S)',
                 ),
                 IconButton(
                   icon: const Icon(Icons.cancel_rounded, size: 16, color: AppColors.error),
@@ -144,11 +199,39 @@ class _FileContentViewerState extends State<FileContentViewer> {
                     setState(() {
                       _isEditing = false;
                       _controller.text = _content;
+                      _hasUnsavedChanges = false;
                     });
                   },
-                  tooltip: 'Cancel',
+                  tooltip: 'Cancel (Esc)',
                 ),
               ],
+            ],
+          ),
+        ),
+        // Cursor position bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(bottom: BorderSide(color: AppColors.border)),
+          ),
+          child: Row(
+            children: [
+              Text(
+                _getLanguage(widget.filePath).toUpperCase(),
+                style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'UTF-8',
+                style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+              ),
+              const Spacer(),
+              if (_isEditing)
+                Text(
+                  'Editing',
+                  style: TextStyle(fontSize: 10, color: AppColors.warning),
+                ),
             ],
           ),
         ),
@@ -161,6 +244,11 @@ class _FileContentViewerState extends State<FileContentViewer> {
                       controller: _controller,
                       maxLines: null,
                       expands: true,
+                      onChanged: (value) {
+                        if (value != _content) {
+                          setState(() => _hasUnsavedChanges = true);
+                        }
+                      },
                       style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: AppColors.textPrimary),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
@@ -194,6 +282,10 @@ class _FileContentViewerState extends State<FileContentViewer> {
       case 'rs': return 'rust';
       case 'java': return 'java';
       case 'json': return 'json';
+      case 'yaml': case 'yml': return 'yaml';
+      case 'css': return 'css';
+      case 'html': return 'html';
+      case 'md': return 'markdown';
       default: return 'plaintext';
     }
   }
@@ -206,6 +298,10 @@ class _FileContentViewerState extends State<FileContentViewer> {
       case 'js': case 'jsx': return Icons.data_object_rounded;
       case 'py': return Icons.memory_rounded;
       case 'json': return Icons.data_object_rounded;
+      case 'yaml': case 'yml': return Icons.settings_rounded;
+      case 'css': return Icons.palette_rounded;
+      case 'html': return Icons.language_rounded;
+      case 'md': return Icons.description_rounded;
       default: return Icons.description_rounded;
     }
   }

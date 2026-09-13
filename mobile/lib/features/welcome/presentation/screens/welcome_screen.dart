@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
 import 'package:spikey/core/providers/project_provider.dart';
+import 'package:spikey/features/docs/presentation/screens/docs_screen.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,7 +29,7 @@ class WelcomeScreen extends ConsumerWidget {
   Future<void> _openProject(BuildContext context, WidgetRef ref) async {
     final String? directoryPath = await getDirectoryPath();
     if (directoryPath == null) return;
-    
+
     final projectName = p.basename(directoryPath);
     final project = Project(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -36,7 +37,7 @@ class WelcomeScreen extends ConsumerWidget {
       path: directoryPath,
       lastOpened: DateTime.now(),
     );
-    
+
     ref.read(projectProvider.notifier).addProject(project);
     await _dismissWelcome(context);
   }
@@ -79,7 +80,11 @@ class WelcomeScreen extends ConsumerWidget {
               _LinkRow(
                 icon: Icons.description_rounded,
                 label: 'Documentation',
-                onTap: () => _launchUrl('https://github.com/AbduljabbarBXR/spikey'),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DocumentationScreen()),
+                  );
+                },
               ),
               const SizedBox(height: 8),
               _LinkRow(
@@ -117,7 +122,7 @@ class WelcomeScreen extends ConsumerWidget {
   }
 }
 
-class _LinkRow extends StatelessWidget {
+class _LinkRow extends StatefulWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -125,24 +130,37 @@ class _LinkRow extends StatelessWidget {
   const _LinkRow({required this.icon, required this.label, required this.onTap});
 
   @override
+  State<_LinkRow> createState() => _LinkRowState();
+}
+
+class _LinkRowState extends State<_LinkRow> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceHover,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: AppColors.primary),
-            const SizedBox(width: 12),
-            Text(label, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14)),
-            const Spacer(),
-            Icon(Icons.open_in_new_rounded, size: 14, color: AppColors.textMuted),
-          ],
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: _isHovered ? AppColors.primary.withValues(alpha: 0.1) : AppColors.surfaceHover,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: _isHovered ? AppColors.primary.withValues(alpha: 0.5) : AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Icon(widget.icon, size: 16, color: AppColors.primary),
+              const SizedBox(width: 12),
+              Text(widget.label, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14)),
+              const Spacer(),
+              Icon(Icons.open_in_new_rounded, size: 14, color: _isHovered ? AppColors.primary : AppColors.textMuted),
+            ],
+          ),
         ),
       ),
     );

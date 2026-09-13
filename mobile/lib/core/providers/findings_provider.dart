@@ -3,25 +3,34 @@ import 'package:spikey/core/providers/indexing_provider.dart';
 
 final findingsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, projectPath) async {
   final engine = ref.read(indexingEngineProvider);
-  final files = await engine.getIndexedFiles();
   final db = await engine.db.db;
-  final findings = <Map<String, dynamic>>[];
-  
-  for (final file in files) {
-    if (file.id == null) continue;
-    final fileFindings = await db.query('findings', where: 'file_id = ?', whereArgs: [file.id]);
-    for (final finding in fileFindings) {
-      findings.add({
-        'id': '${file.path}:${finding['line']}:${finding['title']}',
-        'severity': finding['severity'],
-        'category': finding['category'],
-        'title': finding['title'],
-        'description': finding['description'],
-        'location': '${file.path}:${finding['line']}',
-        'suggestion': finding['suggestion'],
-      });
-    }
-  }
-  
-  return findings;
+
+  // Single JOIN query instead of N sequential queries per file.
+  // Filter to the active project only.
+  final rows = await db.rawQuery('''
+    SELECT findings.*, files.path
+    FROM findings
+    JOIN files ON findings.file_id = files.id
+    WHERE files.path LIKE ?
+    ORDER BY
+      CASE findings.severity
+        WHEN 'critical' THEN 0
+        WHEN 'warning' THEN 1
+        ELSE 2
+      END,
+      files.path,
+      findings.line
+  ''', ['$projectPath%']);
+
+  return rows.map((finding) {
+    return {
+      'id': '${finding['path']}:${finding['line']}:${finding['title']}',
+      'severity': finding['severity'],
+      'category': finding['category'],
+      'title': finding['title'],
+      'description': finding['description'],
+      'location': '${finding['path']}:${finding['line']}',
+      'suggestion': finding['suggestion'],
+    };
+  }).toList();
 });
