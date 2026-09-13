@@ -22,7 +22,7 @@ class IndexDatabase {
     final path = p.join(dir.path, 'spikey_index.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE files (
@@ -80,6 +80,20 @@ class IndexDatabase {
           )
         ''');
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS calls (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              from_function TEXT,
+              to_function TEXT,
+              file_id INTEGER,
+              line INTEGER,
+              FOREIGN KEY(file_id) REFERENCES files(id)
+            )
+          ''');
+        }
+      },
     );
   }
 
@@ -112,6 +126,11 @@ class IndexDatabase {
     return await db.insert('findings', finding);
   }
 
+  Future<int> insertCall(Map<String, dynamic> call) async {
+    final db = await this.db;
+    return await db.insert('calls', call);
+  }
+
   Future<List<Map<String, dynamic>>> getFiles() async {
     final db = await this.db;
     return await db.query('files', orderBy: 'path');
@@ -125,6 +144,32 @@ class IndexDatabase {
   Future<List<Map<String, dynamic>>> getImportsByFile(int fileId) async {
     final db = await this.db;
     return await db.query('imports', where: 'from_file = ?', whereArgs: [fileId]);
+  }
+
+  Future<List<Map<String, dynamic>>> getCallsByFile(int fileId) async {
+    final db = await this.db;
+    return await db.query('calls', where: 'file_id = ?', whereArgs: [fileId]);
+  }
+
+  Future<Map<String, dynamic>?> getFileByPath(String path) async {
+    final db = await this.db;
+    final results = await db.query('files', where: 'path = ?', whereArgs: [path], limit: 1);
+    return results.isNotEmpty ? results.first : null;
+  }
+
+  Future<int> updateFileHash(int fileId, String hash) async {
+    final db = await this.db;
+    return await db.update('files', {'hash': hash, 'last_indexed': DateTime.now().millisecondsSinceEpoch},
+        where: 'id = ?', whereArgs: [fileId]);
+  }
+
+  Future<void> deleteFile(int fileId) async {
+    final db = await this.db;
+    await db.delete('calls', where: 'file_id = ?', whereArgs: [fileId]);
+    await db.delete('imports', where: 'from_file = ?', whereArgs: [fileId]);
+    await db.delete('symbols', where: 'file_id = ?', whereArgs: [fileId]);
+    await db.delete('findings', where: 'file_id = ?', whereArgs: [fileId]);
+    await db.delete('files', where: 'id = ?', whereArgs: [fileId]);
   }
 }
 
@@ -185,28 +230,28 @@ class FileScanner {
   static Future<Map<String, dynamic>> analyzeFile(String path) async {
     final content = await File(path).readAsString();
     final lines = content.split('\n');
-      final language = detectLanguage(p.extension(path).toLowerCase());
+    final language = detectLanguage(p.extension(path).toLowerCase());
     final symbols = <Map<String, dynamic>>[];
     final imports = <Map<String, dynamic>>[];
+    final calls = <Map<String, dynamic>>[];
 
-    // Simple regex-based extraction (Tree-sitter integration would go here)
+    final functionStack = <String>[];
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
       final trimmed = line.trim();
 
-      // Function declarations
       final funcMatch = RegExp(r'function\s+(\w+)\s*\(([^)]*)\)').firstMatch(trimmed);
       if (funcMatch != null) {
-        symbols.add({'name': funcMatch.group(1), 'type': 'function', 'line': i + 1, 'signature': funcMatch.group(0)});
+        final name = funcMatch.group(1)!;
+        symbols.add({'name': name, 'type': 'function', 'line': i + 1, 'signature': funcMatch.group(0)});
+        functionStack.add(name);
       }
 
-      // Class declarations
       final classMatch = RegExp(r'class\s+(\w+)').firstMatch(trimmed);
       if (classMatch != null) {
-        symbols.add({'name': classMatch.group(1), 'type': 'class', 'line': i + 1, 'signature': classMatch.group(0)});
+        symbols.add({'name': classMatch.group(1)!, 'type': 'class', 'line': i + 1, 'signature': classMatch.group(0)});
       }
 
-      // Import statements
       if (trimmed.startsWith('import ') || trimmed.startsWith('from ')) {
         final fromIndex = trimmed.indexOf('from ');
         if (fromIndex != -1) {
@@ -228,6 +273,21 @@ class FileScanner {
           }
         }
       }
+
+      final callMatch = RegExp(r'(\w+)\s*\(').firstMatch(trimmed);
+      if (callMatch != null && functionStack.isNotEmpty) {
+        final called = callMatch.group(1)!;
+        if (called != functionStack.last) {
+          calls.add({'from_function': functionStack.last, 'to_function': called, 'line': i + 1});
+        }
+      }
+
+      if (trimmed.contains('{')) {
+        functionStack.add('__block__');
+      }
+      if (trimmed.contains('}')) {
+        if (functionStack.isNotEmpty) functionStack.removeLast();
+      }
     }
 
     return {
@@ -235,6 +295,7 @@ class FileScanner {
       'loc': lines.length,
       'symbols': symbols,
       'imports': imports,
+      'calls': calls,
     };
   }
 
@@ -262,37 +323,99 @@ class FileScanner {
 class IndexingEngine {
   final IndexDatabase db = IndexDatabase();
 
-  Future<void> indexProject(String projectPath) async {
-    await db.clear();
+  Future<void> indexProject(String projectPath, {bool incremental = true, void Function(int current, int total)? onProgress}) async {
     final files = await FileScanner.scanDirectory(projectPath);
-    for (final filePath in files) {
-      await _indexFile(filePath, projectPath);
+    if (!incremental) {
+      await db.clear();
     }
+
+    final total = files.length;
+    for (var i = 0; i < total; i++) {
+      await _indexFile(files[i], projectPath);
+      onProgress?.call(i + 1, total);
+    }
+
+    await _removeDeletedFiles(projectPath, files);
   }
 
   Future<void> _indexFile(String filePath, String projectPath) async {
     try {
+      final content = await File(filePath).readAsString();
       final hash = await FileScanner.computeHash(filePath);
-      final analysis = await FileScanner.analyzeFile(filePath);
       final relPath = p.relative(filePath, from: projectPath);
+      final existing = await db.getFileByPath(relPath);
 
-      final fileId = await db.insertFile({
-        'path': relPath,
-        'hash': hash,
-        'language': analysis['language'],
-        'loc': analysis['loc'],
-        'last_indexed': DateTime.now().millisecondsSinceEpoch,
-      });
+      if (existing != null && existing['hash'] == hash && existing['last_indexed'] != null) {
+        await db.updateFileHash(existing['id'] as int, hash);
+        return;
+      }
 
-      for (final symbol in analysis['symbols']) {
+      final analysis = await FileScanner.analyzeFile(filePath);
+      final fileId = existing != null
+          ? await db.updateFileHash(existing['id'] as int, hash)
+          : await db.insertFile({
+              'path': relPath,
+              'hash': hash,
+              'language': analysis['language'] as String,
+              'loc': analysis['loc'] as int,
+              'last_indexed': DateTime.now().millisecondsSinceEpoch,
+            });
+
+      if (existing != null) {
+        await db.deleteFile(fileId);
+      }
+
+      for (final symbol in analysis['symbols'] as List<Map<String, dynamic>>) {
         await db.insertSymbol({'file_id': fileId, ...symbol});
       }
 
-      for (final import in analysis['imports']) {
+      for (final import in analysis['imports'] as List<Map<String, dynamic>>) {
         await db.insertImport({'from_file': fileId, ...import});
+      }
+
+      for (final call in analysis['calls'] as List<Map<String, dynamic>>) {
+        await db.insertCall({'file_id': fileId, ...call});
+      }
+
+      final findings = _scanSecurity(filePath, content);
+      for (final finding in findings) {
+        await db.insertFinding({'file_id': fileId, ...finding});
       }
     } catch (e) {
       // Skip files that can't be indexed
+    }
+  }
+
+  List<Map<String, dynamic>> _scanSecurity(String filePath, String content) {
+    final findings = <Map<String, dynamic>>[];
+    final lines = content.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.contains("eval(")) {
+        findings.add({'severity': 'critical', 'category': 'security', 'title': 'Use of eval()', 'description': 'eval() executes arbitrary code', 'line': i + 1, 'suggestion': 'Avoid eval()', 'source': 'static', 'plugin_id': 'com.spikey.security-scanner'});
+      }
+      if (line.contains("innerHTML")) {
+        findings.add({'severity': 'warning', 'category': 'security', 'title': 'innerHTML assignment', 'description': 'Direct innerHTML can lead to XSS', 'line': i + 1, 'suggestion': 'Use textContent or sanitize HTML', 'source': 'static', 'plugin_id': 'com.spikey.security-scanner'});
+      }
+      final passwordPattern = RegExp("""password\s*=\s*['"]""");
+      final passwordMatch = passwordPattern.firstMatch(line);
+      if (passwordMatch != null) {
+        findings.add({'severity': 'critical', 'category': 'security', 'title': 'Hardcoded password', 'description': 'Hardcoded credentials should not be committed', 'line': i + 1, 'suggestion': 'Move credentials to environment variables', 'source': 'static', 'plugin_id': 'com.spikey.security-scanner'});
+      }
+      if (line.contains("new Function(")) {
+        findings.add({'severity': 'warning', 'category': 'security', 'title': 'Dynamic function creation', 'description': 'new Function() can execute arbitrary code', 'line': i + 1, 'suggestion': 'Avoid dynamic function creation', 'source': 'static', 'plugin_id': 'com.spikey.security-scanner'});
+      }
+    }
+    return findings;
+  }
+
+  Future<void> _removeDeletedFiles(String projectPath, List<String> currentFiles) async {
+    final allFiles = await db.getFiles();
+    for (final file in allFiles) {
+      final fullPath = p.join(projectPath, file['path'] as String);
+      if (!currentFiles.contains(fullPath)) {
+        await db.deleteFile(file['id'] as int);
+      }
     }
   }
 
@@ -306,5 +429,18 @@ class IndexingEngine {
           loc: row['loc'] as int,
           lastIndexed: DateTime.fromMillisecondsSinceEpoch(row['last_indexed'] as int),
         )).toList();
+  }
+
+  Future<Map<String, dynamic>> getDependencies(String filePath) async {
+    final file = await db.getFileByPath(filePath);
+    if (file == null) return {'imports': [], 'calls': []};
+
+    final imports = await db.getImportsByFile(file['id'] as int);
+    final calls = await db.getCallsByFile(file['id'] as int);
+
+    return {
+      'imports': imports,
+      'calls': calls,
+    };
   }
 }

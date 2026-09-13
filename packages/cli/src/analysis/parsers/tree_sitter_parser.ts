@@ -1,5 +1,6 @@
 import Parser from 'tree-sitter';
 import * as ts from 'tree-sitter';
+import fs from 'fs';
 import { FileNode, DependencyEdge } from '../models/types.js';
 
 export class ASTParser {
@@ -10,7 +11,7 @@ export class ASTParser {
   }
 
   async parseFile(filePath: string, language: string): Promise<{ symbols: any[]; imports: any[]; calls: any[] }> {
-    const content = await require('fs').promises.readFile(filePath, 'utf-8');
+    const content = await fs.promises.readFile(filePath, 'utf-8');
     const grammar = this.getGrammar(language);
     if (!grammar) {
       return { symbols: [], imports: [], calls: [] };

@@ -16,7 +16,7 @@ coverage
 .cache
 .temp
 tmp
-.vybecode
+.spikey
 .pub
 .pub-cache
 .flutter-plugins

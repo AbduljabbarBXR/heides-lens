@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class PluginMarketplace {
-  static const String registryUrl = 'https://registry.vybecode.dev';
+  static const String registryUrl = 'https://registry.spikey.dev';
   
   Future<List<Map<String, dynamic>>> searchPlugins(String query) async {
     try {
@@ -71,31 +71,31 @@ class PluginMarketplace {
   List<Map<String, dynamic>> _getLocalPlugins() {
     return [
       {
-        'id': 'com.vybecode.security-scanner',
+        'id': 'com.spikey.security-scanner',
         'name': 'Security Scanner',
         'version': '1.0.0',
         'description': 'Detects common security vulnerabilities',
-        'author': 'vybecode-official',
+        'author': 'spikey-official',
         'category': ['security'],
         'downloads': 15420,
         'rating': 4.8,
       },
       {
-        'id': 'com.vybecode.performance-analyzer',
+        'id': 'com.spikey.performance-analyzer',
         'name': 'Performance Analyzer',
         'version': '1.0.0',
         'description': 'Identifies performance bottlenecks',
-        'author': 'vybecode-official',
+        'author': 'spikey-official',
         'category': ['performance'],
         'downloads': 8930,
         'rating': 4.5,
       },
       {
-        'id': 'com.vybecode.architecture-checker',
+        'id': 'com.spikey.architecture-checker',
         'name': 'Architecture Checker',
         'version': '1.0.0',
         'description': 'Validates architecture patterns',
-        'author': 'vybecode-official',
+        'author': 'spikey-official',
         'category': ['architecture'],
         'downloads': 5620,
         'rating': 4.6,

@@ -33,6 +33,11 @@ class SettingsScreen extends ConsumerWidget {
                   spacing: 8,
                   children: [
                     _ProviderChip(
+                      label: 'OpenRouter',
+                      isSelected: config.provider == 'openrouter',
+                      onTap: () => ref.read(settingsProvider.notifier).setProvider('openrouter'),
+                    ),
+                    _ProviderChip(
                       label: 'OpenAI',
                       isSelected: config.provider == 'openai',
                       onTap: () => ref.read(settingsProvider.notifier).setProvider('openai'),
@@ -42,11 +47,21 @@ class SettingsScreen extends ConsumerWidget {
                       isSelected: config.provider == 'anthropic',
                       onTap: () => ref.read(settingsProvider.notifier).setProvider('anthropic'),
                     ),
-                    _ProviderChip(
-                      label: 'Ollama',
-                      isSelected: config.provider == 'ollama',
-                      onTap: () => ref.read(settingsProvider.notifier).setProvider('ollama'),
-                    ),
+                     _ProviderChip(
+                       label: 'Gemini',
+                       isSelected: config.provider == 'gemini',
+                       onTap: () => ref.read(settingsProvider.notifier).setProvider('gemini'),
+                     ),
+                     _ProviderChip(
+                       label: 'OpenCode',
+                       isSelected: config.provider == 'opencode',
+                       onTap: () => ref.read(settingsProvider.notifier).setProvider('opencode'),
+                     ),
+                     _ProviderChip(
+                       label: 'Ollama',
+                       isSelected: config.provider == 'ollama',
+                       onTap: () => ref.read(settingsProvider.notifier).setProvider('ollama'),
+                     ),
                   ],
                 ),
               ],
@@ -151,9 +166,37 @@ class SettingsScreen extends ConsumerWidget {
       case 'openai':
         return ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'];
       case 'anthropic':
-        return ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-haiku'];
+        return ['claude-3-5-sonnet-20240620', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'];
       case 'ollama':
         return ['llama-3.1', 'mistral', 'codellama', 'phi3'];
+      case 'openrouter':
+        return [
+          'openai/gpt-4o',
+          'openai/gpt-4o-mini',
+          'anthropic/claude-3.5-sonnet',
+          'anthropic/claude-3-opus',
+          'google/gemini-pro',
+          'deepseek/deepseek-chat',
+          'kimi/kimi-chat',
+          'minimax/minimax-chat',
+          'meta-llama/llama-3.1-70b',
+          'meta-llama/llama-3.1-405b',
+        ];
+      case 'gemini':
+        return ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'];
+      case 'opencode':
+        return [
+          'opencode-go/kimi-k3',
+          'opencode-go/deepseek-v4-pro',
+          'opencode-go/deepseek-v4-flash',
+          'opencode-go/qwen3.7-max',
+          'opencode-go/qwen3.7-plus',
+          'opencode-go/glm-5.2',
+          'opencode-go/minimax-m3',
+          'opencode-go/mimo-v2.5-free',
+          'opencode-go/nemotron-3-ultra-free',
+          'opencode-go/nemotron-3.5-lightning-free',
+        ];
       default:
         return ['default'];
     }

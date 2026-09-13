@@ -1,34 +1,64 @@
+import { execFile, ExecFileException } from 'child_process';
+import { existsSync } from 'fs';
 import { DiffResult, DiffFile } from '../models/types.js';
-import { execSync } from 'child_process';
 
 export async function getLastDiff(projectPath: string, commit: string = 'HEAD~1'): Promise<DiffResult> {
+  const gitArgs = (args: string[]) => ['-C', projectPath, ...args];
+
+  const runGit = async (args: string[], options?: { encoding?: BufferEncoding; maxBuffer?: number }): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      execFile('git', gitArgs(args), options ?? { encoding: 'utf-8' }, (err, stdout, stderr) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(stdout);
+        }
+      });
+    });
+  };
+
   try {
-    const statOutput = execSync(`git -C "${projectPath}" diff --stat ${commit} 2>/dev/null || git -C "${projectPath}" diff --stat HEAD`, { encoding: 'utf-8' });
+    let statOutput = '';
+    try {
+      statOutput = await runGit(['diff', '--stat', commit]);
+    } catch {
+      if (!existsSync(projectPath)) {
+        throw new Error(`Project path does not exist: ${projectPath}`);
+      }
+      statOutput = await runGit(['diff', '--stat', 'HEAD']);
+    }
+
     const files: DiffFile[] = [];
     const lines = statOutput.trim().split('\n');
-    for (const line of lines) {
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
       const match = line.match(/^(.+?)\s+\|\s+(\d+)\s+([+-]+)$/);
-      if (match) {
-        const filePath = match[1].trim();
-        const changes = parseInt(match[2]);
-        const stats = match[3];
-        const additions = (stats.match(/\+/g) || []).length;
-        const deletions = (stats.match(/-/g) || []).length;
-        const status = additions > 0 && deletions > 0 ? 'modified' : additions > 0 ? 'added' : 'deleted';
-        let diffText = '';
+      if (!match) continue;
+      const filePath = match[1].trim();
+      const additions = (match[3].match(/\+/g) || []).length;
+      const deletions = (match[3].match(/-/g) || []).length;
+      const status = additions > 0 && deletions > 0 ? 'modified' : additions > 0 ? 'added' : 'deleted';
+      let diffText = '';
+      try {
+        diffText = await runGit(['diff', commit, '--', filePath], { maxBuffer: 10 * 1024 * 1024 });
+      } catch {
         try {
-          diffText = execSync(`git -C "${projectPath}" diff ${commit} -- "${filePath}" 2>/dev/null || git -C "${projectPath}" diff HEAD -- "${filePath}"`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
-        } catch { diffText = ''; }
-        files.push({
-          path: filePath,
-          status: status as DiffFile['status'],
-          diff: diffText,
-          additions,
-          deletions,
-          language: getLanguage(filePath),
-        });
+          diffText = await runGit(['diff', 'HEAD', '--', filePath], { maxBuffer: 10 * 1024 * 1024 });
+        } catch {
+          diffText = '';
+        }
       }
+      files.push({
+        path: filePath,
+        status: status as DiffFile['status'],
+        diff: diffText,
+        additions,
+        deletions,
+        language: getLanguage(filePath),
+      });
     }
+
     return {
       files,
       summary: {
@@ -38,7 +68,10 @@ export async function getLastDiff(projectPath: string, commit: string = 'HEAD~1'
       },
     };
   } catch (err) {
-    throw new Error(`Failed to get diff: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    if (err instanceof ExecFileException) {
+      throw new Error(`Failed to get diff: ${err.message}`);
+    }
+    throw err instanceof Error ? err : new Error('Failed to get diff');
   }
 }
 

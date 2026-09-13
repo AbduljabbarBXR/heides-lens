@@ -69,11 +69,11 @@ A cross-platform, plugin-centric coding environment where AI doesn't just autoco
 
 ```json
 {
-  "id": "com.vybecode.security-scanner",
+  "id": "com.spikey.security-scanner",
   "name": "Security Scanner",
   "version": "1.2.0",
   "description": "Detects SQL injection, XSS, and common vulnerabilities",
-  "author": "vybecode-official",
+  "author": "spikey-official",
   "category": ["security", "analysis"],
   "permissions": ["read:files", "write:reports", "llm:chat"],
   "entry": "plugin.wasm",
@@ -110,12 +110,12 @@ A cross-platform, plugin-centric coding environment where AI doesn't just autoco
 
 ### 3.4 Marketplace
 
-- **Registry API**: `registry.vybecode.dev`
-- **Plugin format**: `.vcp` (VybeCode Plugin) = WASM + manifest + assets
+- **Registry API**: `registry.spikey.dev`
+- **Plugin format**: `.vcp` (Spikey Plugin) = WASM + manifest + assets
 - **Discovery**: search by category, tags, popularity
 - **Monetization**: free, paid, or "pay-what-you-want" with revenue share
 - **Verification**: signed packages, community ratings, sandbox audit logs
-- **Distribution**: `vybecode plugin install <id>`, auto-update
+- **Distribution**: `spikey plugin install <id>`, auto-update
 
 ---
 
@@ -132,7 +132,7 @@ A cross-platform, plugin-centric coding environment where AI doesn't just autoco
 | **Dependency Graph (CLI)** | Text-based or ASCII graph of imports | P1 |
 | **Security Scanner** | Basic Semgrep integration for common vulns | P1 |
 | **Plugin System** | WASM loader, manifest parser, hook system | P0 |
-| **Plugin Marketplace** | `vybecode plugin search`, `install`, `list` | P1 |
+| **Plugin Marketplace** | `spikey plugin search`, `install`, `list` | P1 |
 | **LLM Abstraction** | Support OpenAI, Anthropic, Ollama, local models | P0 |
 | **Structured Output** | JSON response parsing from LLMs | P0 |
 | **Memory Plugin** | SQLite-vec local vector store for workspace context | P2 |
@@ -169,23 +169,23 @@ A cross-platform, plugin-centric coding environment where AI doesn't just autoco
 
 ```bash
 # Core
-vybecode init                    # Initialize project manifest
-vybecode analyze                 # Full analysis: diff + graph + checks
-vybecode diff                    # Show last commit with AI rationale
-vybecode graph                   # Render dependency graph (ASCII or DOT)
-vybecode review                   # AI code review with structured output
+spikey init                    # Initialize project manifest
+spikey analyze                 # Full analysis: diff + graph + checks
+spikey diff                    # Show last commit with AI rationale
+spikey graph                   # Render dependency graph (ASCII or DOT)
+spikey review                   # AI code review with structured output
 
 # Plugins
-vybecode plugin list             # List installed plugins
-vybecode plugin search <query>   # Search marketplace
-vybecode plugin install <id>     # Install plugin
-vybecode plugin remove <id>      # Uninstall
-vybecode plugin create <name>    # Scaffold new plugin
+spikey plugin list             # List installed plugins
+spikey plugin search <query>   # Search marketplace
+spikey plugin install <id>     # Install plugin
+spikey plugin remove <id>      # Uninstall
+spikey plugin create <name>    # Scaffold new plugin
 
 # Configuration
-vybecode config set model gpt-4o
-vybecode config set provider openai
-vybecode config set apiKey sk-...
+spikey config set model gpt-4o
+spikey config set provider openai
+spikey config set apiKey sk-...
 ```
 
 ### 5.2 Output Formats
@@ -235,7 +235,7 @@ dependencies:
 ### 6.3 Connectivity
 
 - **Local mode**: Flutter app connects to CLI daemon via HTTP (localhost) or Bluetooth/WiFi
-- **Cloud mode**: Optional sync via `api.vybecode.dev` (user-opt-in)
+- **Cloud mode**: Optional sync via `api.spikey.dev` (user-opt-in)
 - **Offline**: Full analysis runs on-device via WASM plugins
 
 ---
@@ -430,7 +430,7 @@ flutter drive                   # Integration tests on device/emulator
 6. **Plugin loader** — WASM runtime, manifest parsing, hook execution
 7. **Plugin marketplace** — Registry client, search/install commands
 8. **Built-in plugins** — Security scanner, style checker, complexity analyzer
-9. **Analysis pipeline** — Wire everything together: `vybecode analyze`
+9. **Analysis pipeline** — Wire everything together: `spikey analyze`
 10. **Flutter app scaffold** — Project list, sync with CLI, basic UI
 11. **Flutter diff viewer** — Render diffs, show AI rationale
 12. **Flutter graph view** — Interactive neural graph
@@ -442,7 +442,7 @@ flutter drive                   # Integration tests on device/emulator
 
 ## 12. Success Metrics
 
-- **Terminal**: `vybecode analyze` runs in <5s on 1000-file repo
+- **Terminal**: `spikey analyze` runs in <5s on 1000-file repo
 - **Mobile**: App launches in <2s, syncs with CLI in <1s
 - **Plugins**: New plugin installs in <10s, hot-reloads without restart
 - **AI latency**: Streaming response starts in <1s, complete in <10s

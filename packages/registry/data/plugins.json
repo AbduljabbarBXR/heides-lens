@@ -1,0 +1,44 @@
+[
+  {
+    "id": "com.spikey.security-scanner",
+    "name": "Security Scanner",
+    "version": "1.0.0",
+    "description": "Detects common security vulnerabilities using static analysis",
+    "author": "spikey-official",
+    "categories": ["security", "analysis"],
+    "permissions": ["read:files", "write:reports"],
+    "hooks": ["on_analysis_complete"],
+    "entry": "index.js",
+    "downloads": 15420,
+    "rating": 4.8,
+    "created_at": "2025-01-01T00:00:00Z"
+  },
+  {
+    "id": "com.spikey.performance-analyzer",
+    "name": "Performance Analyzer",
+    "version": "1.0.0",
+    "description": "Identifies performance bottlenecks and suggests optimizations",
+    "author": "spikey-official",
+    "categories": ["performance", "analysis"],
+    "permissions": ["read:files"],
+    "hooks": ["on_graph_build"],
+    "entry": "index.js",
+    "downloads": 8930,
+    "rating": 4.5,
+    "created_at": "2025-02-01T00:00:00Z"
+  },
+  {
+    "id": "com.spikey.architecture-checker",
+    "name": "Architecture Checker",
+    "version": "1.0.0",
+    "description": "Validates architecture patterns and dependency rules",
+    "author": "spikey-official",
+    "categories": ["architecture", "analysis"],
+    "permissions": ["read:files", "write:reports"],
+    "hooks": ["on_analysis_complete", "on_graph_build"],
+    "entry": "index.js",
+    "downloads": 5620,
+    "rating": 4.6,
+    "created_at": "2025-03-01T00:00:00Z"
+  }
+]

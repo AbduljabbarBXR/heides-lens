@@ -9,8 +9,8 @@ import { configCommand } from './commands/config.js';
 import { launchTUI } from './tui/index.js';
 
 program
-  .name('vybecode')
-  .description('VybeCode — Plugin-first AI coding platform')
+  .name('spikey')
+  .description('Spikey — Plugin-first AI coding platform')
   .version('0.1.0');
 
 program.addCommand(analyzeCommand);

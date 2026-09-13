@@ -1,24 +1,18 @@
 import { FileNode, DependencyEdge } from '../models/types.js';
 import fs from 'fs';
 import path from 'path';
-import { ASTParser } from './parsers/tree_sitter_parser.js';
 
 export async function buildDependencyGraph(projectPath: string, options: { format: string; maxDepth: number }) {
   const nodes: FileNode[] = [];
   const edges: DependencyEdge[] = [];
   try {
     const files = await globFiles(projectPath);
-    const parser = new ASTParser();
     for (const file of files) {
       const content = await fs.promises.readFile(file, 'utf-8');
       const ext = file.split('.').pop()?.toLowerCase();
       const language = getLanguage(ext || '');
       const loc = content.split('\n').length;
-      let deps: string[] = [];
-      try {
-        const result = await parser.parseFile(file, language);
-        deps = result.imports.map(i => i.to_module);
-      } catch { deps = []; }
+      const deps = extractImports(content);
       nodes.push({
         id: file,
         path: file,
@@ -41,6 +35,35 @@ export async function buildDependencyGraph(projectPath: string, options: { forma
     return { ascii: '', dot: renderDot(nodes, edges), nodes, edges };
   }
   return { ascii: '', dot: '', nodes, edges };
+}
+
+function extractImports(content: string): string[] {
+  const imports: string[] = [];
+  const lines = content.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('import ') || trimmed.startsWith('from ')) {
+      const fromIndex = trimmed.indexOf('from ');
+      if (fromIndex !== -1) {
+        const afterFrom = trimmed.substring(fromIndex + 5).trim();
+        const firstQuote = afterFrom.indexOf("'");
+        const secondQuote = afterFrom.indexOf('"');
+        let startQuote = -1;
+        let endQuote = -1;
+        if (firstQuote !== -1 && (secondQuote === -1 || firstQuote < secondQuote)) {
+          startQuote = firstQuote;
+          endQuote = afterFrom.indexOf("'", startQuote + 1);
+        } else if (secondQuote !== -1) {
+          startQuote = secondQuote;
+          endQuote = afterFrom.indexOf('"', startQuote + 1);
+        }
+        if (startQuote !== -1 && endQuote !== -1) {
+          imports.push(afterFrom.substring(startQuote + 1, endQuote));
+        }
+      }
+    }
+  }
+  return imports;
 }
 
 function renderAscii(nodes: FileNode[], edges: DependencyEdge[]): string {

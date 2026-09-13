@@ -63,7 +63,7 @@ export async function onAnalysisComplete(context) {
               suggestion: rule.suggestion,
               confidence: 0.9,
               source: 'plugin',
-              pluginId: 'com.vybecode.security-scanner',
+              pluginId: 'com.spikey.security-scanner',
             });
           }
         }

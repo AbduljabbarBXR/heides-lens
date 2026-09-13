@@ -12,10 +12,10 @@ export const analyzeCommand = new Command('analyze')
   .action(async (options) => {
     const spinner = ora('Analyzing project...').start();
     try {
-      const plugins = options.plugins ? await loadPlugins() : [];
+      const plugins = options.plugins !== false ? await loadPlugins() : [];
       const report = await analyzeProject(options.path, {
-        runPlugins: options.plugins,
-        runLLM: options.llm,
+        runPlugins: options.plugins !== false,
+        runLLM: options.llm !== false,
         plugins,
       });
       spinner.succeed(`Analysis complete: ${report.findings.length} findings`);

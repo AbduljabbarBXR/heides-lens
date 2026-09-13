@@ -8,6 +8,20 @@ const LOGO = `
 /____/\\___/_/ /_/_/|_/_/ |__/|__/
 `;
 
+const PROVIDERS = ['openai', 'anthropic', 'ollama', 'openrouter', 'gemini', 'deepseek', 'kimi', 'minimax', 'huggingface', 'opencode'];
+const MODELS: Record<string, string[]> = {
+  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+  anthropic: ['claude-3-5-sonnet-20240620', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'],
+  ollama: ['llama-3.1', 'mistral', 'codellama', 'phi3'],
+  openrouter: ['openai/gpt-4o', 'openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet', 'google/gemini-pro', 'deepseek/deepseek-chat'],
+  gemini: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  kimi: ['kimi-chat'],
+  minimax: ['minimax-chat'],
+  huggingface: ['meta-llama/Llama-3.1-70b'],
+  opencode: ['opencode-go/kimi-k3', 'opencode-go/deepseek-v4-pro', 'opencode-go/qwen3.7-max'],
+};
+
 export async function launchTUI() {
   const screen = blessed.screen({
     smartCSR: true,
@@ -78,8 +92,8 @@ export async function launchTUI() {
   screen.append(inputBox);
 
   const state = {
-    provider: getConfig('provider') || 'openai',
-    model: getConfig('model') || 'gpt-4o',
+    provider: getConfig('provider') || 'openrouter',
+    model: getConfig('model') || 'openai/gpt-4o',
     apiKey: getConfig('apiKey') || '',
     projectPath: process.cwd(),
   };
@@ -129,7 +143,7 @@ export async function launchTUI() {
     if (!input) return;
 
     if (input === '/help') {
-      appendResult('{bold}Commands:{/bold}\n  analyze [path]  - Full analysis\n  diff [path]      - Show diff\n  graph [path]     - Dependency graph\n  /clear           - Clear\n  /help            - This help');
+      appendResult('{bold}Commands:{/bold}\n  analyze [path]  - Full analysis\n  diff [path]      - Show diff\n  graph [path]     - Dependency graph\n  review [path]    - AI code review\n  plugin list      - List plugins\n  config set <k> <v> - Set config\n  /clear           - Clear\n  /help            - This help');
       return;
     }
 
@@ -147,8 +161,28 @@ export async function launchTUI() {
     const parts = input.split(' ');
     const cmd = parts[0].toLowerCase();
 
-    if (['analyze', 'diff', 'graph'].includes(cmd)) {
+    if (['analyze', 'diff', 'graph', 'review'].includes(cmd)) {
       runCommand(cmd, parts.slice(1));
+    } else if (cmd === 'plugin') {
+      const sub = parts[1];
+      if (sub === 'list') {
+        try {
+          const { execSync } = require('child_process');
+          appendResult(execSync('node dist/index.js plugin list', { encoding: 'utf-8' }));
+        } catch (err: any) {
+          appendResult(`{red-fg}Error: ${err.message}{/red-fg}`);
+        }
+      } else if (sub === 'search' && parts[2]) {
+        appendResult(`Searching for: ${parts.slice(2).join(' ')}`);
+        try {
+          const { execSync } = require('child_process');
+          appendResult(execSync(`node dist/index.js plugin search ${parts.slice(2).join(' ')}`, { encoding: 'utf-8' }));
+        } catch (err: any) {
+          appendResult(`{red-fg}Error: ${err.message}{/red-fg}`);
+        }
+      } else {
+        appendResult('Usage: plugin list | plugin search <query>');
+      }
     } else if (cmd === 'config') {
       const sub = parts[1];
       const key = parts[2];
@@ -191,20 +225,18 @@ export async function launchTUI() {
   inputBox.key(['escape', 'q', 'C-c'], () => process.exit(0));
 
   screen.key('p', () => {
-    const providers = ['openai', 'anthropic', 'ollama'];
-    state.provider = providers[(providers.indexOf(state.provider) + 1) % providers.length];
-    appendResult(`{cyan-fg}Provider: ${state.provider}{/cyan-fg}`);
+    const idx = PROVIDERS.indexOf(state.provider);
+    state.provider = PROVIDERS[(idx + 1) % PROVIDERS.length];
+    const models = MODELS[state.provider] || ['default'];
+    state.model = models[0];
+    appendResult(`{cyan-fg}Provider: ${state.provider}{/cyan-fg}\n{cyan-fg}Model: ${state.model}{/cyan-fg}`);
     refreshStatus();
   });
 
   screen.key('m', () => {
-    const models: Record<string, string[]> = {
-      openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
-      anthropic: ['claude-3-5-sonnet', 'claude-3-opus'],
-      ollama: ['llama-3.1', 'mistral', 'codellama'],
-    };
-    const list = models[state.provider] || ['default'];
-    state.model = list[(list.indexOf(state.model) + 1) % list.length];
+    const list = MODELS[state.provider] || ['default'];
+    const idx = list.indexOf(state.model);
+    state.model = list[(idx + 1) % list.length];
     appendResult(`{cyan-fg}Model: ${state.model}{/cyan-fg}`);
     refreshStatus();
   });
@@ -212,30 +244,26 @@ export async function launchTUI() {
   screen.key('q', () => process.exit(0));
   screen.key('C-c', () => process.exit(0));
 
-  // Scroll results with arrow keys when resultsBox is focused
   resultsBox.key('up', () => { resultsBox.scroll(-1); screen.render(); });
   resultsBox.key('down', () => { resultsBox.scroll(1); screen.render(); });
   resultsBox.key('pageup', () => { resultsBox.setScrollPerc(resultsBox.getScrollPerc() - 10); screen.render(); });
   resultsBox.key('pagedown', () => { resultsBox.setScrollPerc(resultsBox.getScrollPerc() + 10); screen.render(); });
 
-  // Mouse/touch: click results to focus and enable scrolling
   resultsBox.on('click', () => {
     resultsBox.focus();
     screen.render();
   });
 
-  // Mouse/touch: click input to focus it
   inputBox.on('click', () => {
     inputBox.focus();
     screen.render();
   });
 
-  // Mouse wheel scroll on results
   resultsBox.on('wheeldown', () => { resultsBox.scroll(3); screen.render(); });
   resultsBox.on('wheelup', () => { resultsBox.scroll(-3); screen.render(); });
 
   inputBox.focus();
   screen.render();
 
-  appendResult(`{bold}Welcome to Spikey{/bold}\nType {green-fg}analyze [path]{/green-fg}, {green-fg}diff [path]{/green-fg}, or {green-fg}graph [path]{/green-fg}\nUse {grey-fg}[p]{/grey-fg} provider, {grey-fg}[m]{/grey-fg} model, {grey-fg}[q]{/grey-fg} quit`);
+  appendResult(`{bold}Welcome to Spikey{/bold}\nType {green-fg}analyze [path]{/green-fg}, {green-fg}diff [path]{/green-fg}, {green-fg}graph [path]{/green-fg}, or {green-fg}review [path]{/green-fg}\nUse {grey-fg}[p]{/grey-fg} provider, {grey-fg}[m]{/grey-fg} model, {grey-fg}[q]{/grey-fg} quit`);
 }

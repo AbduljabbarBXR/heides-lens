@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Project {
   final String id;
@@ -24,6 +26,26 @@ class Project {
       isIndexed: isIndexed ?? this.isIndexed,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'path': path,
+      'lastOpened': lastOpened.toIso8601String(),
+      'isIndexed': isIndexed,
+    };
+  }
+
+  factory Project.fromJson(Map<String, dynamic> json) {
+    return Project(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      path: json['path'] as String,
+      lastOpened: DateTime.parse(json['lastOpened'] as String),
+      isIndexed: json['isIndexed'] as bool? ?? false,
+    );
+  }
 }
 
 class ProjectState {
@@ -34,20 +56,58 @@ class ProjectState {
 }
 
 class ProjectNotifier extends StateNotifier<ProjectState> {
-  ProjectNotifier() : super(const ProjectState());
+  static const _key = 'projects';
+  ProjectNotifier() : super(const ProjectState()) {
+    _loadProjects();
+  }
 
-  void addProject(Project project) {
+  Future<void> _loadProjects() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_key);
+      if (raw != null) {
+        final List<dynamic> decoded = json.decode(raw);
+        final projects = decoded.map((p) => Project.fromJson(p)).toList();
+        final active = projects.isNotEmpty ? projects.first : null;
+        state = ProjectState(projects: projects, activeProject: active);
+      }
+    } catch (_) {
+      // ignore load errors
+    }
+  }
+
+  Future<void> _persistProjects() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = json.encode(state.projects.map((p) => p.toJson()).toList());
+      await prefs.setString(_key, encoded);
+    } catch (_) {
+      // ignore persistence errors
+    }
+  }
+
+  Future<void> addProject(Project project) async {
     state = ProjectState(projects: [...state.projects, project], activeProject: project);
+    await _persistProjects();
   }
 
-  void setActiveProject(Project project) {
+  Future<void> setActiveProject(Project project) async {
     state = ProjectState(projects: state.projects, activeProject: project);
+    await _persistProjects();
   }
 
-  void updateProject(Project project) {
+  Future<void> updateProject(Project project) async {
     final projects = state.projects.map((p) => p.id == project.id ? project : p).toList();
     final active = state.activeProject?.id == project.id ? project : state.activeProject;
     state = ProjectState(projects: projects, activeProject: active);
+    await _persistProjects();
+  }
+
+  Future<void> removeProject(String projectId) async {
+    final projects = state.projects.where((p) => p.id != projectId).toList();
+    final active = state.activeProject?.id == projectId ? (projects.isNotEmpty ? projects.first : null) : state.activeProject;
+    state = ProjectState(projects: projects, activeProject: active);
+    await _persistProjects();
   }
 }
 

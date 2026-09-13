@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:spikey/shared/themes/app_colors.dart';
 import 'package:spikey/core/providers/project_provider.dart';
 
@@ -21,8 +22,8 @@ class FileTreeViewer extends ConsumerWidget {
       );
     }
 
-    return FutureBuilder<List<_FileNode>>(
-      future: _scanDirectory(activeProject.path),
+    return FutureBuilder<_FileNode>(
+      future: _buildTree(activeProject.path),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(
@@ -30,44 +31,48 @@ class FileTreeViewer extends ConsumerWidget {
           );
         }
 
-        final files = snapshot.data!;
-        return ListView.builder(
-          padding: const EdgeInsets.all(8),
-          itemCount: files.length,
-          itemBuilder: (context, index) {
-            final file = files[index];
-            return _FileTile(
-              file: file,
-              depth: 0,
-              onTap: onFileTap != null ? () => onFileTap!(file.path) : null,
-            );
-          },
+        final root = snapshot.data!;
+        return _TreeView(
+          root: root,
+          depth: 0,
+          onFileTap: onFileTap,
         );
       },
     );
   }
 
-  Future<List<_FileNode>> _scanDirectory(String dirPath) async {
-    final nodes = <_FileNode>[];
-    await _scanRecursive(dirPath, 0, nodes);
-    return nodes;
+  Future<_FileNode> _buildTree(String dirPath) async {
+    final root = _FileNode(name: p.basename(dirPath), path: dirPath, isDirectory: true, depth: 0);
+    await _populateDirectory(dirPath, root, 0);
+    return root;
   }
 
-  Future<void> _scanRecursive(String dirPath, int depth, List<_FileNode> nodes) async {
+  Future<void> _populateDirectory(String dirPath, _FileNode parent, int depth) async {
     try {
       final entries = await Directory(dirPath).list().toList();
+      entries.sort((a, b) {
+        final aName = a.path.split(Platform.pathSeparator).last;
+        final bName = b.path.split(Platform.pathSeparator).last;
+        final aIsDir = a is Directory;
+        final bIsDir = b is Directory;
+        if (aIsDir && !bIsDir) return -1;
+        if (!aIsDir && bIsDir) return 1;
+        return aName.compareTo(bName);
+      });
+
       for (final entry in entries) {
         final name = entry.path.split(Platform.pathSeparator).last;
         if (name.startsWith('.') || name == 'node_modules' || name == 'build' || name == 'dist') continue;
-        
+
         if (entry is Directory) {
-          nodes.add(_FileNode(name: name, path: entry.path, isDirectory: true, depth: depth));
-          await _scanRecursive(entry.path, depth + 1, nodes);
+          final node = _FileNode(name: name, path: entry.path, isDirectory: true, depth: depth + 1);
+          parent.children.add(node);
+          await _populateDirectory(entry.path, node, depth + 1);
         } else if (entry is File) {
           final ext = name.split('.').last.toLowerCase();
-          final isSupported = ['.dart', '.ts', '.js', '.py', '.go', '.rs', '.java', '.c', '.cpp'].any((s) => ext == s.replaceFirst('.', ''));
+          final isSupported = ['.dart', '.ts', '.js', '.py', '.go', '.rs', '.java', '.c', '.cpp', '.jsx', '.tsx', '.h', '.rb', '.php'].any((s) => ext == s.replaceFirst('.', ''));
           if (isSupported) {
-            nodes.add(_FileNode(name: name, path: entry.path, isDirectory: false, depth: depth));
+            parent.children.add(_FileNode(name: name, path: entry.path, isDirectory: false, depth: depth + 1));
           }
         }
       }
@@ -82,40 +87,98 @@ class _FileNode {
   final String path;
   final bool isDirectory;
   final int depth;
+  final List<_FileNode> children;
+  bool isExpanded;
 
-  _FileNode({required this.name, required this.path, required this.isDirectory, required this.depth});
+  _FileNode({required this.name, required this.path, required this.isDirectory, required this.depth, List<_FileNode>? children})
+      : children = children != null ? List.from(children) : <_FileNode>[],
+        isExpanded = false;
+}
+
+class _TreeView extends StatefulWidget {
+  final _FileNode root;
+  final int depth;
+  final Function(String filePath)? onFileTap;
+
+  const _TreeView({required this.root, required this.depth, this.onFileTap});
+
+  @override
+  State<_TreeView> createState() => _TreeViewState();
+}
+
+class _TreeViewState extends State<_TreeView> {
+  @override
+  Widget build(BuildContext context) {
+    return _FileTile(
+      file: widget.root,
+      depth: widget.depth,
+      onTap: widget.root.isDirectory ? () {
+        setState(() {
+          widget.root.isExpanded = !widget.root.isExpanded;
+        });
+      } : widget.onFileTap != null ? () => widget.onFileTap!(widget.root.path) : null,
+      child: widget.root.isExpanded && widget.root.children.isNotEmpty
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: widget.root.children.map((child) => _TreeView(
+                root: child,
+                depth: widget.depth + 1,
+                onFileTap: widget.onFileTap,
+              )).toList(),
+            )
+          : null,
+    );
+  }
 }
 
 class _FileTile extends StatelessWidget {
   final _FileNode file;
   final int depth;
   final VoidCallback? onTap;
+  final Widget? child;
 
-  const _FileTile({required this.file, required this.depth, this.onTap});
+  const _FileTile({required this.file, required this.depth, this.onTap, this.child});
 
   @override
   Widget build(BuildContext context) {
-    final icon = file.isDirectory ? Icons.folder_rounded : _getFileIcon(file.name);
+    final icon = file.isDirectory
+        ? (file.isExpanded ? Icons.folder_open_rounded : Icons.folder_rounded)
+        : _getFileIcon(file.name);
     final color = file.isDirectory ? AppColors.warning : AppColors.textSecondary;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.only(left: depth * 16 + 8, right: 8, top: 4, bottom: 4),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                file.name,
-                style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
-                overflow: TextOverflow.ellipsis,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: EdgeInsets.only(left: depth * 16 + 8, right: 8, top: 4, bottom: 4),
+            decoration: BoxDecoration(
+              color: onTap != null && file.isDirectory ? AppColors.surfaceHover : Colors.transparent,
             ),
-          ],
+            child: Row(
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    file.name,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (file.isDirectory && file.children.isNotEmpty)
+                  Icon(
+                    file.isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                    size: 16,
+                    color: AppColors.textMuted,
+                  ),
+              ],
+            ),
+          ),
         ),
-      ),
+        if (child != null) child!,
+      ],
     );
   }
 

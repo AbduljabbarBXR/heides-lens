@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -52,16 +54,17 @@ class MemoryStore {
     Map<String, dynamic>? metadata,
   }) async {
     final db = await this.db;
+    final encoded = _encodeEmbedding(embedding);
     final memoryId = await db.insert('memories', {
       'workspace_id': workspaceId,
       'content': content,
-      'embedding': _encodeEmbedding(embedding),
+      'embedding': encoded,
       'metadata': metadata != null ? jsonEncode(metadata) : null,
       'created_at': DateTime.now().millisecondsSinceEpoch,
     });
     await db.insert('memory_index', {
       'memory_id': memoryId,
-      'vector': _encodeEmbedding(embedding),
+      'vector': encoded,
     });
   }
 
@@ -71,10 +74,17 @@ class MemoryStore {
       'memories',
       where: 'workspace_id = ?',
       whereArgs: [workspaceId],
-      orderBy: 'created_at DESC',
-      limit: limit,
     );
-    return memories;
+
+    final scored = <Map<String, dynamic>>[];
+    for (final memory in memories) {
+      final stored = _decodeEmbedding(memory['embedding'] as Uint8List);
+      final score = _cosineSimilarity(queryEmbedding, stored);
+      scored.add({...memory, 'score': score});
+    }
+
+    scored.sort((a, b) => (b['score'] as double).compareTo(a['score'] as double));
+    return scored.take(limit).toList();
   }
 
   Future<void> clearWorkspace(String workspaceId) async {
@@ -86,7 +96,36 @@ class MemoryStore {
     await db.delete('memories', where: 'workspace_id = ?', whereArgs: [workspaceId]);
   }
 
-  List<double> _encodeEmbedding(List<double> embedding) {
-    return embedding.map((e) => e.clamp(-1.0, 1.0)).toList();
+  Uint8List _encodeEmbedding(List<double> embedding) {
+    final buffer = Uint8List(embedding.length * 8);
+    final view = ByteData.view(buffer.buffer);
+    for (var i = 0; i < embedding.length; i++) {
+      view.setFloat64(i * 8, embedding[i].clamp(-1.0, 1.0));
+    }
+    return buffer;
+  }
+
+  List<double> _decodeEmbedding(Uint8List data) {
+    final view = ByteData.view(data.buffer);
+    final embedding = <double>[];
+    for (var i = 0; i < data.length; i += 8) {
+      embedding.add(view.getFloat64(i));
+    }
+    return embedding;
+  }
+
+  double _cosineSimilarity(List<double> a, List<double> b) {
+    if (a.length != b.length) return 0.0;
+    var dot = 0.0;
+    var normA = 0.0;
+    var normB = 0.0;
+    for (var i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    final denom = sqrt(normA * normB);
+    if (denom == 0) return 0.0;
+    return dot / denom;
   }
 }
