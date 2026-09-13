@@ -3,6 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const String asciiLogo = r'''
+  ██████╗ ██████╗ ██╗██╗  ██╗███████╗██╗   ██╗
+ ██╔════╝ ██╔══██╗██║██║ ██╔╝██╔════╝╚██╗ ██╔╝
+ ███████╗ ██████╔╝██║█████╔╝ █████╗   ╚████╔╝
+ ╚════██║ ██╔═══╝ ██║██╔═██╗ ██╔══╝    ╚██╔╝
+ ███████║ ██║     ██║██║  ██╗███████╗   ██║
+ ╚══════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝''';
+
 class OnboardingOverlay extends StatefulWidget {
   final VoidCallback onComplete;
 
@@ -172,6 +180,20 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
                           }),
                         ),
                         const SizedBox(height: 48),
+
+                        // ASCII art logo
+                        Text(
+                          asciiLogo,
+                          style: TextStyle(
+                            color: step.color,
+                            fontSize: 9,
+                            height: 1.05,
+                            fontFamily: 'monospace',
+                            letterSpacing: 1.1,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
 
                         // Icon
                         Container(

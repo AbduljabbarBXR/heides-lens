@@ -1,5 +1,14 @@
 # Spikey User Guide
 
+```
+  ██████╗ ██████╗ ██╗██╗  ██╗███████╗██╗   ██╗
+ ██╔════╝ ██╔══██╗██║██║ ██╔╝██╔════╝╚██╗ ██╔╝
+ ███████╗ ██████╔╝██║█████╔╝ █████╗   ╚████╔╝
+ ╚════██║ ██╔═══╝ ██║██╔═██╗ ██╔══╝    ╚██╔╝
+ ███████║ ██║     ██║██║  ██╗███████╗   ██║
+ ╚══════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝
+```
+
 Plugin-first AI coding platform. Predicts what will break before you deploy.
 
 This guide covers each section of the desktop app. All screenshots are rendered

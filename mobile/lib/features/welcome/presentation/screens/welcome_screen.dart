@@ -8,6 +8,14 @@ import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+const String asciiLogo = r'''
+  ██████╗ ██████╗ ██╗██╗  ██╗███████╗██╗   ██╗
+ ██╔════╝ ██╔══██╗██║██║ ██╔╝██╔════╝╚██╗ ██╔╝
+ ███████╗ ██████╔╝██║█████╔╝ █████╗   ╚████╔╝
+ ╚════██║ ██╔═══╝ ██║██╔═██╗ ██╔══╝    ╚██╔╝
+ ███████║ ██║     ██║██║  ██╗███████╗   ██║
+ ╚══════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝''';
+
 class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
@@ -69,6 +77,26 @@ class WelcomeScreen extends ConsumerWidget {
                   const SizedBox(width: 16),
                   Text('Spikey', style: AppTextStyles.h2.copyWith(color: AppColors.primary)),
                 ],
+              ),
+              const SizedBox(height: 16),
+              // ASCII art logo
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceHover,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Text(
+                  asciiLogo,
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 11,
+                    height: 1.1,
+                    fontFamily: 'monospace',
+                    letterSpacing: 1.2,
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
               Text('Plugin-first AI coding platform', style: AppTextStyles.h3),

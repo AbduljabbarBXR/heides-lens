@@ -1,5 +1,14 @@
 # Spikey
 
+```
+  ██████╗ ██████╗ ██╗██╗  ██╗███████╗██╗   ██╗
+ ██╔════╝ ██╔══██╗██║██║ ██╔╝██╔════╝╚██╗ ██╔╝
+ ███████╗ ██████╔╝██║█████╔╝ █████╗   ╚████╔╝
+ ╚════██║ ██╔═══╝ ██║██╔═██╗ ██╔══╝    ╚██╔╝
+ ███████║ ██║     ██║██║  ██╗███████╗   ██║
+ ╚══════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝
+```
+
 ![Flutter](https://img.shields.io/badge/Flutter-3.16%2B-blue)
 ![Dart](https://img.shields.io/badge/Dart-3.2%2B-blue)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)
@@ -9,29 +18,9 @@
 
 Terminal CLI + cross-platform desktop/mobile app with architecture planning, live code analysis, neural dependency graphs, and a plugin marketplace.
 
-## Screenshots
-
-<p align="center">
-  <img src="assets/images/screens/welcome.png" alt="Welcome & Onboarding" width="45%"/>
-  <img src="assets/images/screens/explorer.png" alt="Explorer / File Tree" width="45%"/>
-</p>
-
-<p align="center">
-  <img src="assets/images/screens/graph.png" alt="Neural Graph" width="45%"/>
-  <img src="assets/images/screens/review.png" alt="Review / Findings" width="45%"/>
-</p>
-
-<p align="center">
-  <img src="assets/images/screens/workflow.png" alt="Workflow / Chat" width="45%"/>
-  <img src="assets/images/screens/plugins.png" alt="Plugin Marketplace" width="45%"/>
-</p>
-
-<p align="center">
-  <img src="assets/images/screens/plan.png" alt="Plan Mode" width="45%"/>
-  <img src="assets/images/screens/settings.png" alt="Settings" width="45%"/>
-</p>
-
-> Screenshots are rendered from the real UI via golden tests (`mobile/test/screenshots/`). Regenerate with `flutter test test/screenshots --update-goldens`.
+> All screenshots below are rendered from the real UI (same theme, fonts, and
+> layouts) via golden tests in `mobile/test/screenshots/`. Regenerate with
+> `flutter test test/screenshots --update-goldens`.
 
 ## Documentation
 
@@ -46,7 +35,6 @@ The desktop app ships with an in-app documentation viewer:
 
 ## Table of Contents
 
-- [Screenshots](#screenshots)
 - [Features](#features)
 - [Documentation](#documentation)
 - [Architecture](#architecture)
@@ -75,14 +63,71 @@ The desktop app ships with an in-app documentation viewer:
 - LLM abstraction layer
 
 ### Cross-Platform App (Flutter)
-- **Plan Mode**: Architecture scaffold generator with edge cases and patterns
-- **Workflow Mode**: Chat interface for code analysis
-- **Graph Mode**: Neural dependency visualization with real indexed data
-- **Review Mode**: Findings panel with severity badges
-- **Plugins Mode**: Marketplace browser with search and install
-- **Settings**: Provider/model selection, API key management
-- **File Manager**: Tree view with language-aware icons, file content viewer
-- **Desktop**: Window controls, resizable sidebar, top menu bar
+
+#### Welcome & Onboarding
+
+![Welcome & Onboarding](assets/images/screens/welcome.png)
+
+- Interactive 4-step tour covering graph, chat, review, and plugins
+- ASCII art logo and quick links (documentation, repository, marketplace)
+- **Open Project** starts background indexing with a live progress overlay
+
+#### Explorer (File Tree)
+
+![Explorer](assets/images/screens/explorer.png)
+
+- Language-aware file tree with colored icons for Dart, TS/JS, Python, config
+- Sidebar closed by default — toggle with the Explorer icon or `Ctrl+1`
+- Click any file to open the viewer with breadcrumbs and line numbers (`Esc` to return)
+
+#### Plan Mode
+
+![Plan Mode](assets/images/screens/plan.png)
+
+- Describe a feature and generate an architecture scaffold
+- Covers edge cases, error handling, and design patterns
+- Creates real project files from the scaffold
+
+#### Workflow (Chat)
+
+![Workflow](assets/images/screens/workflow.png)
+
+- Chat with an AI assistant that has full project context (file tree, dependencies, findings, entry points)
+- Markdown rendering with syntax-highlighted code blocks
+- Providers: OpenRouter, OpenAI, Anthropic, Gemini, Ollama
+
+#### Neural Graph
+
+![Neural Graph](assets/images/screens/graph.png)
+
+- Layered dependency layout (Sugiyama-style) with aligned columns
+- Orthogonal edges that route around cards with elbow joints
+- Filter by node type, search, grid view toggle
+- Navigation: drag to pan, double-click / wheel / pinch to zoom, minimap, fit-to-view
+
+#### Review (Findings)
+
+![Review](assets/images/screens/review.png)
+
+- Findings sorted critical → warning → info from static analysis
+- Click a finding to preview the exact file with the target line highlighted
+- Inline suggestions with every finding
+
+#### Plugins (Marketplace)
+
+![Plugins](assets/images/screens/plugins.png)
+
+- Marketplace with live search and category filters
+- One-click install with visual state
+- Sandboxed execution model with manifest-driven permissions
+
+#### Settings
+
+![Settings](assets/images/screens/settings.png)
+
+- Provider selection (OpenRouter, OpenAI, Anthropic, Gemini, Ollama)
+- Model dropdown per provider, API keys in secure storage
+- **Test Connection** validates the key against the provider
 
 ### Indexing Engine
 - SQLite-backed file scanner

@@ -9,6 +9,7 @@ import 'package:spikey/core/providers/navigation_provider.dart';
 import 'package:spikey/core/providers/project_provider.dart';
 import 'package:spikey/core/providers/settings_provider.dart';
 import 'package:spikey/data/services/indexing_engine.dart';
+import 'package:spikey/shared/themes/app_theme.dart';
 import 'package:spikey/features/plan/presentation/screens/plan_screen.dart';
 import 'package:spikey/features/settings/presentation/screens/settings_screen.dart';
 import 'package:spikey/features/welcome/presentation/screens/welcome_screen.dart';
@@ -130,8 +131,9 @@ Future<void> _pumpApp(WidgetTester tester, ProviderContainer container, {bool si
   }
   await tester.pumpWidget(UncontrolledProviderScope(
     container: container,
-    child: const MaterialApp(
+    child: MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.dark,
       home: AppShell(),
     ),
   ));
@@ -144,9 +146,10 @@ void main() {
   });
 
   testWidgets('01 - welcome', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
+    await tester.pumpWidget(MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: WelcomeScreen(),
+      theme: AppTheme.dark,
+      home: const WelcomeScreen(),
     ));
     await tester.pumpAndSettle();
     await expectLater(find.byType(WelcomeScreen), matchesGoldenFile('goldens/welcome.png'));
@@ -163,9 +166,10 @@ void main() {
   });
 
   testWidgets('03 - plan', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
+    await tester.pumpWidget(MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: PlanScreen(),
+      theme: AppTheme.dark,
+      home: const PlanScreen(),
     ));
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
     await expectLater(find.byType(PlanScreen), matchesGoldenFile('goldens/plan.png'));
@@ -207,9 +211,10 @@ void main() {
     final container = await _buildContainer();
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(
+      child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: SettingsScreen(),
+        theme: AppTheme.dark,
+        home: const SettingsScreen(),
       ),
     ));
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
