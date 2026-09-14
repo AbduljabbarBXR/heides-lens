@@ -37,6 +37,8 @@ class GraphScreen extends ConsumerStatefulWidget {
   ConsumerState<GraphScreen> createState() => _GraphScreenState();
 }
 
+enum GraphFacet { all, entryPoints, hubs, cycles, modules }
+
 class _GraphScreenState extends ConsumerState<GraphScreen> {
   bool _indexing = false;
   double _indexProgress = 0.0;
@@ -45,6 +47,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
   String? _hoveredNode;
   String _searchQuery = '';
   final Set<String> _visibleTypes = Set.from(nodeTypeColors.keys);
+  GraphFacet _facet = GraphFacet.all;
   Offset? _dragStart;
   String? _draggingPath;
   final TransformationController _transformController = TransformationController();
@@ -203,6 +206,44 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                // Facet views — one meaningful slice at a time
+                Row(
+                  children: [
+                    const Icon(Icons.layers_rounded, size: 14, color: AppColors.textMuted),
+                    const SizedBox(width: 8),
+                    ...GraphFacet.values.map((facet) {
+                      final isActive = _facet == facet;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(
+                            _facetLabel(facet),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isActive ? AppColors.background : AppColors.textSecondary,
+                            ),
+                          ),
+                          selected: isActive,
+                          onSelected: (_) {
+                            setState(() {
+                              _facet = facet;
+                              _nodePositions.clear();
+                              _initialFitDone = false;
+                            });
+                          },
+                          backgroundColor: AppColors.surfaceHover,
+                          selectedColor: AppColors.primary,
+                          checkmarkColor: AppColors.background,
+                          side: BorderSide(color: isActive ? AppColors.primary : AppColors.border),
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      );
+                    }),
+                  ],
+                ),
               ],
             ),
           ),
@@ -220,22 +261,44 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                   data: (graphData) {
                     final filesList = graphData['files'] as List<IndexedFile>;
                     final edges = graphData['edges'] as List<Map<String, dynamic>>;
+                    final projectPath = projectState.activeProject?.path ?? '';
 
-                    // Apply type filter and search
+                    // Deterministic structural analysis (mirrors HEIDES facts)
+                    final entrySet = _entryPoints(filesList, edges);
+                    final hubSet = _hubPaths(filesList, edges);
+                    final cycleSet = _cyclePaths(filesList, edges);
+
+                    // Apply type filter, search, and facet
                     final visibleFiles = filesList.where((f) {
                       final type = _getFileType(f.path);
                       final typeVisible = _visibleTypes.contains(type);
                       final searchMatch = _searchQuery.isEmpty || p.basename(f.path).toLowerCase().contains(_searchQuery);
-                      return typeVisible && searchMatch;
+                      if (!typeVisible || !searchMatch) return false;
+                      switch (_facet) {
+                        case GraphFacet.all:
+                          return true;
+                        case GraphFacet.entryPoints:
+                          return entrySet.contains(f.path);
+                        case GraphFacet.hubs:
+                          return hubSet.contains(f.path);
+                        case GraphFacet.cycles:
+                          return cycleSet.contains(f.path);
+                        case GraphFacet.modules:
+                          return true; // modules facet shows all, grouped into bands
+                      }
                     }).toList();
 
                     final visiblePaths = visibleFiles.map((f) => f.path).toSet();
                     final visibleEdges = edges.where((e) =>
                         visiblePaths.contains(e['from']) && visiblePaths.contains(e['to'])).toList();
 
-                    // Initialize positions with force-directed layout
+                    // Initialize positions: module bands when in Modules facet, else layered
                     if (_nodePositions.isEmpty) {
-                      _initializePositions(visibleFiles, visibleEdges);
+                      if (_facet == GraphFacet.modules) {
+                        _initializeModulePositions(visibleFiles, projectPath);
+                      } else {
+                        _initializePositions(visibleFiles, visibleEdges);
+                      }
                     }
 
                     // Calculate canvas size
@@ -301,6 +364,15 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
+                                // Module bands (Modules facet only)
+                                if (_facet == GraphFacet.modules)
+                                  Positioned.fill(
+                                    child: CustomPaint(
+                                      painter: _ModuleBandPainter(
+                                        bands: _moduleBands(visibleFiles, projectPath),
+                                      ),
+                                    ),
+                                  ),
                                 // Edges
                                 Positioned.fill(
                                   child: CustomPaint(
@@ -335,6 +407,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                                       isSelected: isSelected,
                                       isHovered: isHovered,
                                       isDimmed: isDimmed,
+                                      badges: _badgesFor(file.path, entrySet, hubSet, cycleSet),
                                       edges: visibleEdges,
                                       allFiles: visibleFiles,
                                       projectPath: projectState.activeProject?.path ?? '',
@@ -378,6 +451,14 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                           bottom: 126,
                           child: Column(
                             children: [
+                              if (_selectedNode != null) ...[
+                                _ZoomControlButton(
+                                  icon: Icons.center_focus_strong_rounded,
+                                  tooltip: 'Focus on selection',
+                                  onTap: () => _focusOnSelection(visibleEdges),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
                               _ZoomControlButton(
                                 icon: Icons.add_rounded,
                                 tooltip: 'Zoom In',
@@ -489,6 +570,35 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     );
   }
 
+  String _facetLabel(GraphFacet facet) {
+    switch (facet) {
+      case GraphFacet.all:
+        return 'All';
+      case GraphFacet.entryPoints:
+        return 'Entry Points';
+      case GraphFacet.hubs:
+        return 'Hubs';
+      case GraphFacet.cycles:
+        return 'Cycles';
+      case GraphFacet.modules:
+        return 'Modules';
+    }
+  }
+
+  /// Group files by module for the Modules facet.
+  Map<String, List<IndexedFile>> _groupByModule(
+      List<IndexedFile> files, String projectPath) {
+    final groups = <String, List<IndexedFile>>{};
+    for (final f in files) {
+      final module = _moduleOf(f.path, projectPath);
+      groups.putIfAbsent(module, () => []).add(f);
+    }
+    // Sort modules by size (largest first) for stable ordering
+    final sortedKeys = groups.keys.toList()
+      ..sort((a, b) => groups[b]!.length.compareTo(groups[a]!.length));
+    return {for (final k in sortedKeys) k: groups[k]!};
+  }
+
   String _getFileType(String path) {
     final ext = p.extension(path).replaceFirst('.', '');
     final name = p.basename(path).toLowerCase();
@@ -512,6 +622,107 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
 
   bool _isConnected(String a, String b, List<Map<String, dynamic>> edges) {
     return edges.any((e) => (e['from'] == a && e['to'] == b) || (e['from'] == b && e['to'] == a));
+  }
+
+  // -------------------------------------------------------------------------
+  // Structural analysis (deterministic — no AI, mirrors HEIDES spine facts)
+  // -------------------------------------------------------------------------
+
+  /// Entry points: files nothing else imports (roots of the graph).
+  Set<String> _entryPoints(List<IndexedFile> files, List<Map<String, dynamic>> edges) {
+    final imported = <String>{};
+    for (final e in edges) {
+      imported.add(e['to'] as String);
+    }
+    return files.map((f) => f.path).where((p) => !imported.contains(p)).toSet();
+  }
+
+  /// Hubs: the most-connected nodes (degree >= 3, or top third for small graphs).
+  Set<String> _hubPaths(List<IndexedFile> files, List<Map<String, dynamic>> edges) {
+    final degree = <String, int>{};
+    for (final f in files) {
+      degree[f.path] = 0;
+    }
+    for (final e in edges) {
+      final from = e['from'] as String;
+      final to = e['to'] as String;
+      if (degree.containsKey(from)) degree[from] = degree[from]! + 1;
+      if (degree.containsKey(to)) degree[to] = degree[to]! + 1;
+    }
+    final sorted = degree.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final threshold = files.length <= 8 ? 2 : 3;
+    return sorted.where((e) => e.value >= threshold).map((e) => e.key).toSet();
+  }
+
+  /// Cycles: strongly connected components with >1 member (Tarjan).
+  Set<String> _cyclePaths(List<IndexedFile> files, List<Map<String, dynamic>> edges) {
+    final adj = <String, List<String>>{};
+    for (final f in files) {
+      adj[f.path] = [];
+    }
+    for (final e in edges) {
+      final from = e['from'] as String;
+      final to = e['to'] as String;
+      if (adj.containsKey(from) && adj.containsKey(to)) adj[from]!.add(to);
+    }
+
+    final index = <String, int>{};
+    final lowLink = <String, int>{};
+    final onStack = <String>{};
+    final stack = <String>[];
+    final cycleNodes = <String>{};
+    var counter = 0;
+
+    void strongConnect(String v) {
+      index[v] = counter;
+      lowLink[v] = counter;
+      counter++;
+      stack.add(v);
+      onStack.add(v);
+
+      for (final w in adj[v]!) {
+        if (!index.containsKey(w)) {
+          strongConnect(w);
+          lowLink[v] = lowLink[v]! < lowLink[w]! ? lowLink[v]! : lowLink[w]!;
+        } else if (onStack.contains(w)) {
+          lowLink[v] = lowLink[v]! < index[w]! ? lowLink[v]! : index[w]!;
+        }
+      }
+
+      if (lowLink[v] == index[v]) {
+        final component = <String>[];
+        while (true) {
+          final w = stack.removeLast();
+          onStack.remove(w);
+          component.add(w);
+          if (w == v) break;
+        }
+        if (component.length > 1) cycleNodes.addAll(component);
+      }
+    }
+
+    for (final f in files) {
+      if (!index.containsKey(f.path)) strongConnect(f.path);
+    }
+    return cycleNodes;
+  }
+
+  /// Module: the first directory segment of a file relative to its project.
+  String _moduleOf(String path, String projectPath) {
+    final rel = p.relative(path, from: projectPath);
+    final parts = rel.split(p.separator);
+    if (parts.isEmpty) return 'root';
+    if (parts.first == 'lib' && parts.length > 1) return parts[1];
+    return parts.first;
+  }
+
+  /// Structural badges for a file (entrypoint ⚡, hub ⭐, cycle 🔁, leaf 🍃).
+  List<String> _badgesFor(String path, Set<String> entry, Set<String> hubs, Set<String> cycles) {
+    final badges = <String>[];
+    if (entry.contains(path)) badges.add('entry');
+    if (hubs.contains(path)) badges.add('hub');
+    if (cycles.contains(path)) badges.add('cycle');
+    return badges;
   }
 
   void _initializePositions(List<IndexedFile> files, List<Map<String, dynamic>> edges) {
@@ -610,6 +821,105 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     _nodePositions.addAll(positions);
   }
 
+  /// Module-band layout: each module gets its own labeled column band, so the
+  /// view reads as "what each section does" — separated and titled.
+  Map<String, Rect> _initializeModulePositions(
+      List<IndexedFile> files, String projectPath) {
+    const nodeWidth = 200.0;
+    const nodeHeight = 80.0;
+    const gapX = 90.0;
+    const gapY = 30.0;
+    const bandHeader = 46.0;
+    const bandPadding = 24.0;
+
+    final groups = _groupByModule(files, projectPath);
+    final positions = <String, Offset>{};
+    final bands = <String, Rect>{};
+
+    var x = 60.0;
+    for (final entry in groups.entries) {
+      final module = entry.key;
+      final nodes = entry.value;
+
+      // Stack nodes in this module's band
+      var y = bandHeader + bandPadding;
+      for (final node in nodes) {
+        positions[node.path] = Offset(x, y);
+        y += nodeHeight + gapY;
+      }
+      final bandHeight = y + bandPadding - bandHeader;
+      bands[module] = Rect.fromLTWH(x - bandPadding, 0, nodeWidth + gapX, bandHeight);
+      x += nodeWidth + gapX + gapX + 20;
+    }
+
+    _nodePositions.addAll(positions);
+    return bands;
+  }
+
+  /// Compute module band rects for the given file set (for the painter).
+  Map<String, Rect> _moduleBands(List<IndexedFile> files, String projectPath) {
+    if (_facet != GraphFacet.modules) return {};
+    const nodeWidth = 200.0;
+    const gapX = 90.0;
+    const bandHeader = 46.0;
+    const bandPadding = 24.0;
+
+    final groups = _groupByModule(files, projectPath);
+    final bands = <String, Rect>{};
+    var x = 60.0;
+    for (final entry in groups.entries) {
+      final module = entry.key;
+      final nodes = entry.value;
+      final height = bandHeader + bandPadding * 2 + nodes.length * (80.0 + 30.0);
+      bands[module] = Rect.fromLTWH(x - bandPadding, 0, nodeWidth + gapX, height);
+      x += nodeWidth + gapX + gapX + 20;
+    }
+    return bands;
+  }
+
+  /// Zoom to the selected node and its immediate neighborhood.
+  void _focusOnSelection(List<Map<String, dynamic>> edges) {
+    final selected = _selectedNode;
+    if (selected == null) return;
+
+    final neighborhood = <String>{selected};
+    for (final e in edges) {
+      if (e['from'] == selected) neighborhood.add(e['to'] as String);
+      if (e['to'] == selected) neighborhood.add(e['from'] as String);
+    }
+
+    double minX = double.infinity, minY = double.infinity;
+    double maxX = 0, maxY = 0;
+    for (final path in neighborhood) {
+      final pos = _nodePositions[path];
+      if (pos == null) continue;
+      if (pos.dx < minX) minX = pos.dx;
+      if (pos.dy < minY) minY = pos.dy;
+      if (pos.dx > maxX) maxX = pos.dx;
+      if (pos.dy > maxY) maxY = pos.dy;
+    }
+    if (minX == double.infinity) return;
+
+    final viewport = _viewerKey.currentContext?.size;
+    if (viewport == null) return;
+
+    const padding = 120.0;
+    final contentWidth = maxX - minX + 400;
+    final contentHeight = maxY - minY + 150;
+    final scaleX = (viewport.width - padding * 2) / contentWidth;
+    final scaleY = (viewport.height - padding * 2) / contentHeight;
+    final fitScale = math.min(scaleX, scaleY).clamp(0.3, 2.0);
+
+    final centerX = (minX + maxX) / 2;
+    final centerY = (minY + maxY) / 2;
+    final translateX = viewport.width / 2 - centerX * fitScale;
+    final translateY = viewport.height / 2 - centerY * fitScale;
+
+    _transformController.value = Matrix4.identity()
+      ..translate(translateX, translateY)
+      ..scale(fitScale);
+  }
+
   void _fitToView() {
     if (_nodePositions.isEmpty) return;
     double minX = double.infinity, minY = double.infinity;
@@ -668,6 +978,7 @@ class _GraphNode extends StatefulWidget {
   final bool isSelected;
   final bool isHovered;
   final bool isDimmed;
+  final List<String> badges;
   final List<Map<String, dynamic>> edges;
   final List<IndexedFile> allFiles;
   final String projectPath;
@@ -683,6 +994,7 @@ class _GraphNode extends StatefulWidget {
     required this.isSelected,
     required this.isHovered,
     required this.isDimmed,
+    required this.badges,
     required this.edges,
     required this.allFiles,
     required this.projectPath,
@@ -787,8 +1099,16 @@ class _GraphNodeState extends State<_GraphNode> {
                           ],
                         ),
                       ),
+                      // Structural badges (deterministic, from graph structure)
+                      ...widget.badges.map((badge) => Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: _BadgeChip(badge: badge),
+                          )),
                       if (widget.isHovered || widget.isSelected)
-                        Icon(Icons.open_in_new_rounded, size: 12, color: widget.color),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(Icons.open_in_new_rounded, size: 12, color: widget.color),
+                        ),
                     ],
                   ),
                 ),
@@ -1045,6 +1365,97 @@ class _GraphEdgePainter extends CustomPainter {
         oldDelegate.hoveredNode != hoveredNode ||
         oldDelegate.nodePositions != nodePositions;
   }
+}
+
+// ==================== BADGE CHIP ====================
+
+class _BadgeChip extends StatelessWidget {
+  final String badge;
+
+  const _BadgeChip({required this.badge});
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color, tooltip) = switch (badge) {
+      'entry' => (Icons.bolt_rounded, AppColors.warning, 'Entry point'),
+      'hub' => (Icons.hub_rounded, AppColors.primary, 'Hub — most connected'),
+      'cycle' => (Icons.loop_rounded, AppColors.error, 'In a call cycle'),
+      _ => (Icons.circle, AppColors.textMuted, badge),
+    };
+
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(icon, size: 10, color: color),
+      ),
+    );
+  }
+}
+
+// ==================== MODULE BAND PAINTER ====================
+
+class _ModuleBandPainter extends CustomPainter {
+  final Map<String, Rect> bands;
+
+  _ModuleBandPainter({required this.bands});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fillPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = AppColors.surface.withValues(alpha: 0.5);
+
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..color = AppColors.border;
+
+    final headerPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = AppColors.surfaceHover;
+
+    for (final entry in bands.entries) {
+      final module = entry.key;
+      final rect = entry.value;
+
+      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+      canvas.drawRRect(rrect, fillPaint);
+      canvas.drawRRect(rrect, borderPaint);
+
+      // Header band
+      final headerRect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(rect.left, rect.top, rect.width, 38),
+        topLeft: const Radius.circular(12),
+        topRight: const Radius.circular(12),
+      );
+      canvas.drawRRect(headerRect, headerPaint);
+
+      // Module label
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: module,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(canvas, Offset(rect.left + 14, rect.top + 11));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ModuleBandPainter oldDelegate) =>
+      oldDelegate.bands != bands;
 }
 
 // ==================== MINIMAP ====================
