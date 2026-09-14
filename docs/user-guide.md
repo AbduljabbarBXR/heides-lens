@@ -1,15 +1,6 @@
-# Spikey User Guide
+# Heides Lens User Guide
 
-```
-  ██████╗ ██████╗ ██╗██╗  ██╗███████╗██╗   ██╗
- ██╔════╝ ██╔══██╗██║██║ ██╔╝██╔════╝╚██╗ ██╔╝
- ███████╗ ██████╔╝██║█████╔╝ █████╗   ╚████╔╝
- ╚════██║ ██╔═══╝ ██║██╔═██╗ ██╔══╝    ╚██╔╝
- ███████║ ██║     ██║██║  ██╗███████╗   ██║
- ╚══════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝
-```
-
-Plugin-first AI coding platform. Predicts what will break before you deploy.
+The nervous system for your code, with eyes.
 
 This guide covers each section of the desktop app. All screenshots are rendered
 from the real UI via golden tests — regenerate with
@@ -17,18 +8,18 @@ from the real UI via golden tests — regenerate with
 
 ## 1. Welcome & Onboarding
 
-![Welcome & Onboarding](../assets/images/screens/welcome.png)
+![Welcome & Onboarding](../assets/images/screens-jpg/welcome.jpg)
 
 - First launch shows an interactive tour of the four core capabilities:
   graph, chat, review, and plugins.
 - The welcome dialog provides quick links to documentation, the repository,
   and the plugin marketplace.
-- **Open Project** starts the project selector; selecting a folder kicks off
+- **Open Folder** starts the project selector; selecting a folder kicks off
   indexing in the background.
 
 ## 2. Explorer (File Tree)
 
-![Explorer](../assets/images/screens/explorer.png)
+![Explorer](../assets/images/screens-jpg/explorer.jpg)
 
 - Language-aware file tree with colored icons (Dart, TS/JS, Python, config, …).
 - The sidebar is closed by default — open it with the Explorer icon in the
@@ -38,15 +29,15 @@ from the real UI via golden tests — regenerate with
 
 ## 3. Plan Mode
 
-![Plan](../assets/images/screens/plan.png)
+![Plan](../assets/images/screens-jpg/plan.jpg)
 
 - Describe a feature or architecture change and generate a scaffold with
   edge cases, error handling, and design patterns.
 - Plan mode creates actual project files from the scaffold.
 
-## 4. Workflow (Chat)
+## 4. Query (Chat with the nervous system)
 
-![Workflow](../assets/images/screens/workflow.png)
+![Workflow](../assets/images/screens-jpg/workflow.jpg)
 
 - Chat with an AI assistant that has full project context: file tree,
   dependencies, findings, and entry points are injected into the system
@@ -55,9 +46,9 @@ from the real UI via golden tests — regenerate with
 - Responses render markdown with syntax-highlighted code blocks.
 - Providers: OpenRouter, OpenAI, Anthropic, Gemini, Ollama.
 
-## 5. Neural Graph
+## 5. Neural Mesh (Graph)
 
-![Neural Graph](../assets/images/screens/graph.png)
+![Neural Graph](../assets/images/screens-jpg/graph.jpg)
 
 - Layered dependency layout (Sugiyama-style): entry points on the left,
   dependencies flowing right in aligned columns.
@@ -72,7 +63,7 @@ from the real UI via golden tests — regenerate with
 
 ## 6. Review (Findings)
 
-![Review](../assets/images/screens/review.png)
+![Review](../assets/images/screens-jpg/review.jpg)
 
 - Findings from static analysis, sorted critical → warning → info.
 - Click a finding to preview the exact file with the target line highlighted.
@@ -80,7 +71,7 @@ from the real UI via golden tests — regenerate with
 
 ## 7. Plugins (Marketplace)
 
-![Plugins](../assets/images/screens/plugins.png)
+![Plugins](../assets/images/screens-jpg/plugins.jpg)
 
 - Browse the marketplace with live search and category filters.
 - One-click install; installed plugins show state.
@@ -88,7 +79,7 @@ from the real UI via golden tests — regenerate with
 
 ## 8. Settings
 
-![Settings](../assets/images/screens/settings.png)
+![Settings](../assets/images/screens-jpg/settings.jpg)
 
 - Provider selection (OpenRouter, OpenAI, Anthropic, Gemini, Ollama).
 - Model dropdown per provider.

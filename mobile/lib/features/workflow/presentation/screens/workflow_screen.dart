@@ -265,8 +265,8 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
                         const SizedBox(height: 16),
                         Text(
                           project != null
-                              ? 'Ask about your ${project.name} codebase'
-                              : 'Start typing to analyze your code',
+                              ? 'Ask about your ${project.name} mesh'
+                              : 'Ask the nervous system about your code',
                           style: AppTextStyles.body.copyWith(color: AppColors.textMuted),
                         ),
                         const SizedBox(height: 8),

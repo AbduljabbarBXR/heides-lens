@@ -143,8 +143,8 @@ void main() {
 
       await tester.pumpAndSettle(const Duration(seconds: 1));
       
-      expect(find.text('Spikey'), findsOneWidget);
-      expect(find.text('Plugin-first AI coding platform'), findsOneWidget);
+      expect(find.text('Heides Lens'), findsOneWidget);
+      expect(find.text('The nervous system for your code, with eyes.'), findsOneWidget);
       expect(find.text('Open Project'), findsOneWidget);
       expect(find.text('Close'), findsOneWidget);
     });

@@ -58,7 +58,7 @@ class WelcomeScreen extends ConsumerWidget {
             children: [
               const _WelcomeLogo(),
               const SizedBox(height: 24),
-              Text('Plugin-first AI coding platform', style: AppTextStyles.h3),
+              Text('The nervous system for your code, with eyes.', style: AppTextStyles.h3),
               const SizedBox(height: 8),
               Text('Predicts what will break before you deploy.', style: AppTextStyles.body),
               const SizedBox(height: 24),

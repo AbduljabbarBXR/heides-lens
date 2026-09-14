@@ -16,7 +16,7 @@ void main() async {
     await windowManager.waitUntilReadyToShow();
     await windowManager.setMinimumSize(const Size(1024, 768));
     await windowManager.setSize(const Size(1280, 800));
-    await windowManager.setTitle('Spikey');
+    await windowManager.setTitle('Heides Lens');
     await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
     await windowManager.show();
     await windowManager.focus();
@@ -31,7 +31,7 @@ class SpikeyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
-      title: 'Spikey',
+      title: 'Heides Lens',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       home: const AppShell(),

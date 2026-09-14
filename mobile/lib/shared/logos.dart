@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// Spikey logo variants — minimal geometric icons + wordmark.
+/// Heides Lens logo variants — minimal geometric icons + wordmark.
 /// Inspired by Pi's clean, rounded identity.
 
 class SpikeyLogo {
@@ -67,7 +67,7 @@ class SpikeyLogoMark extends StatelessWidget {
   }
 }
 
-/// Full logo: mark + "Spikey" wordmark.
+/// Full logo: mark + wordmark.
 class SpikeyLogoFull extends StatelessWidget {
   final int id;
   final double markSize;
@@ -90,7 +90,7 @@ class SpikeyLogoFull extends StatelessWidget {
         SpikeyLogoMark(id: id, size: markSize),
         const SizedBox(width: 10),
         Text(
-          'Spikey',
+          'Heides Lens',
           style: TextStyle(
             color: textColor,
             fontSize: fontSize,

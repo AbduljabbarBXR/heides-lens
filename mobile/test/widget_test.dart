@@ -10,6 +10,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'logo_choice': 1,
       'onboarding_completed': true,
+      'heides_setup_done': true,
     });
     await tester.pumpWidget(
       ProviderScope(

@@ -868,39 +868,73 @@ class _GraphEdgePainter extends CustomPainter {
   /// Build an orthogonal (elbow) path from source right edge to target left
   /// edge. Straight when clear; otherwise route through a vertical lane that
   /// avoids any card blocking the way (Supabase-style squarish routing).
+  /// Searches both left and right of the midpoint, never racing off-canvas.
   List<Offset> _orthogonalRoute(Offset start, Offset end, String fromPath, String toPath) {
     // Straight line when nothing is in the way and rows align
     if ((start.dy - end.dy).abs() < 0.5 && !_segmentHits(start, end, fromPath, toPath)) {
       return [start, end];
     }
 
-    // Route with elbows through a middle vertical lane
-    final startX = start.dx;
+    // Route with elbows through a vertical lane.
+    // Try the midpoint first, then alternate left/right, capped so lines
+    // never shoot off toward infinity.
     final midX0 = (start.dx + end.dx) / 2;
-    // Same column (same-layer edge): push the lane outward
-    var midX = (end.dx - start.dx).abs() < 1.0 ? startX + 60 : midX0;
+    final startX = start.dx;
+    final endX = end.dx;
+    // Same column (same-layer edge): push the lane outward from the source.
+    final baseX = (endX - startX).abs() < 1.0 ? startX + 60 : midX0;
 
     const step = 40.0;
+    const maxAttempts = 24;
     var found = false;
-    for (var i = 0; i < 300 && !found; i++) {
+    var midX = baseX;
+    for (var i = 0; i < maxAttempts && !found; i++) {
+      // Alternate sides: 0, -1, +1, -2, +2, ... around the base lane
+      final side = (i % 2 == 0 ? 1 : -1);
+      final distance = ((i + 1) ~/ 2) * step;
+      midX = baseX + side * distance;
+
+      // Never route further than the target column's edge — lines that
+      // overshoot past the target look broken.
+      final lowerBound = math.min(startX, endX) - nodeWidth;
+      final upperBound = math.max(startX, endX) + nodeWidth;
+      if (midX < lowerBound || midX > upperBound) continue;
+
       final p2 = Offset(midX, start.dy);
       final p3 = Offset(midX, end.dy);
       if (!_segmentHits(start, p2, fromPath, toPath) &&
           !_segmentHits(p2, p3, fromPath, toPath) &&
           !_segmentHits(p3, end, fromPath, toPath)) {
         found = true;
-      } else {
-        midX += step;
       }
     }
     return [start, Offset(midX, start.dy), Offset(midX, end.dy), end];
   }
 
+  /// Classify an edge by its dominant direction so overlapping lines stay
+  /// visually distinguishable.
+  String _edgeDirection(Offset start, Offset end) {
+    final dx = end.dx - start.dx;
+    if (dx.abs() < 1.0) return 'vertical'; // same layer, up/down jog
+    if (dx > 0) return 'forward'; // left → right (dependency flow)
+    return 'backward'; // right → left (back-edge / cycle)
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
-    final normalPaint = Paint()
-      ..color = AppColors.border.withValues(alpha: 0.5)
+    final forwardPaint = Paint()
+      ..color = AppColors.border.withValues(alpha: 0.55)
       ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final backwardPaint = Paint()
+      ..color = AppColors.warning.withValues(alpha: 0.4)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+
+    final verticalPaint = Paint()
+      ..color = AppColors.info.withValues(alpha: 0.3)
+      ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
     final highlightPaint = Paint()
@@ -913,6 +947,10 @@ class _GraphEdgePainter extends CustomPainter {
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
+    // Precompute per-edge geometry and classification so we can draw in
+    // layers: backward and vertical edges first (underneath), then the
+    // main forward dependency flow on top.
+    final paths = <({Path path, Offset end, double arrowAngle, String direction, String fromPath, String toPath})>[];
     for (final edge in edges) {
       final fromPath = edge['from'] as String;
       final toPath = edge['to'] as String;
@@ -930,44 +968,75 @@ class _GraphEdgePainter extends CustomPainter {
         path.lineTo(pt.dx, pt.dy);
       }
 
-      // Determine paint based on selection/hover state
-      final activeNode = selectedNode ?? hoveredNode;
-      final isActive = activeNode != null;
-      final isConnectedToActive = isActive && (fromPath == activeNode || toPath == activeNode);
-
-      Paint paint;
-      if (isConnectedToActive) {
-        paint = highlightPaint;
-      } else if (isActive) {
-        paint = dimPaint;
-      } else {
-        paint = normalPaint;
-      }
-
-      canvas.drawPath(path, paint);
-
-      // Draw arrowhead along the final segment direction
-      final arrowPaint = Paint()
-        ..color = paint.color
-        ..style = PaintingStyle.fill;
-
+      // Arrow points along the final approach segment (last two points).
       final last = points[points.length - 1];
       final prev = points[points.length - 2];
-      final angle = (last - prev).direction;
-      final arrowSize = 6.0;
-      final arrowPath = Path();
-      arrowPath.moveTo(last.dx, last.dy);
-      arrowPath.lineTo(
-        last.dx - arrowSize * math.cos(angle - 0.5),
-        last.dy - arrowSize * math.sin(angle - 0.5),
-      );
-      arrowPath.lineTo(
-        last.dx - arrowSize * math.cos(angle + 0.5),
-        last.dy - arrowSize * math.sin(angle + 0.5),
-      );
-      arrowPath.close();
-      canvas.drawPath(arrowPath, arrowPaint);
+
+      paths.add((
+        path: path,
+        end: end,
+        arrowAngle: (last - prev).direction,
+        direction: _edgeDirection(start, end),
+        fromPath: fromPath,
+        toPath: toPath,
+      ));
     }
+
+    // Layer order: vertical jogs → backward edges → forward edges on top.
+    for (final layer in ['vertical', 'backward', 'forward']) {
+      for (final entry in paths.where((e) => e.direction == layer)) {
+        final basePaint = switch (layer) {
+          'backward' => backwardPaint,
+          'vertical' => verticalPaint,
+          _ => forwardPaint,
+        };
+        _drawEdge(canvas, entry.path, entry.end, entry.arrowAngle, entry.fromPath, entry.toPath,
+            basePaint, highlightPaint, dimPaint);
+      }
+    }
+  }
+
+  void _drawEdge(
+    Canvas canvas,
+    Path path,
+    Offset end,
+    double arrowAngle,
+    String fromPath,
+    String toPath,
+    Paint basePaint,
+    Paint highlightPaint,
+    Paint dimPaint,
+  ) {
+    final activeNode = selectedNode ?? hoveredNode;
+    final isActive = activeNode != null;
+    final isConnectedToActive = isActive && (fromPath == activeNode || toPath == activeNode);
+
+    final paint = isConnectedToActive
+        ? highlightPaint
+        : isActive
+            ? dimPaint
+            : basePaint;
+
+    canvas.drawPath(path, paint);
+
+    // Arrowhead along the final segment direction
+    final arrowPaint = Paint()
+      ..color = paint.color
+      ..style = PaintingStyle.fill;
+
+    final arrowSize = 5.0;
+    final arrowPath = Path();
+    arrowPath.moveTo(end.dx, end.dy);
+    arrowPath.lineTo(
+      end.dx - arrowSize * math.cos(arrowAngle - 0.5),
+      end.dy - arrowSize * math.sin(arrowAngle - 0.5),
+    );
+    arrowPath.lineTo(
+      end.dx - arrowSize * math.cos(arrowAngle + 0.5),
+      end.dy - arrowSize * math.sin(arrowAngle + 0.5),
+    );
+    arrowPath.close();
+    canvas.drawPath(arrowPath, arrowPaint);
   }
 
   @override
@@ -1131,6 +1200,38 @@ class _Legend extends StatelessWidget {
               ),
             );
           }),
+          const SizedBox(height: 8),
+          const Text('Edge Types', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          _LegendEdge(color: AppColors.border.withValues(alpha: 0.55), label: 'Dependency flow'),
+          _LegendEdge(color: AppColors.warning.withValues(alpha: 0.4), label: 'Back-edge / cycle'),
+          _LegendEdge(color: AppColors.info.withValues(alpha: 0.3), label: 'Vertical link'),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendEdge extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendEdge({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 16,
+            height: 0,
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: color, width: 2))),
+          ),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 9, color: AppColors.textSecondary)),
         ],
       ),
     );

@@ -1,37 +1,30 @@
-# Spikey
-
-```
-  ██████╗ ██████╗ ██╗██╗  ██╗███████╗██╗   ██╗
- ██╔════╝ ██╔══██╗██║██║ ██╔╝██╔════╝╚██╗ ██╔╝
- ███████╗ ██████╔╝██║█████╔╝ █████╗   ╚████╔╝
- ╚════██║ ██╔═══╝ ██║██╔═██╗ ██╔══╝    ╚██╔╝
- ███████║ ██║     ██║██║  ██╗███████╗   ██║
- ╚══════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝
-```
+# Heides Lens
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.16%2B-blue)
 ![Dart](https://img.shields.io/badge/Dart-3.2%2B-blue)
-![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)
+![HEIDES](https://img.shields.io/badge/HEIDES-0.14%2B-green)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-**Plugin-first AI coding platform. Predicts what will break before you deploy.**
+**The nervous system for your code, with eyes.**
 
-Terminal CLI + cross-platform desktop/mobile app with architecture planning, live code analysis, neural dependency graphs, and a plugin marketplace.
+Heides Lens is the visual companion to [HEIDES](https://github.com/AbduljabbarBXR/heides) — the deterministic code nervous system that maps every file, symbol, and call into a persistent graph, then guards every change against it. Lens is the UI: open a folder, see the mesh, query who-calls-what, review real findings, and plan against reality.
 
-> All screenshots below are rendered from the real UI (same theme, fonts, and
-> layouts) via golden tests in `mobile/test/screenshots/`. Regenerate with
+It is not another coding assistant. It is the brain your codebase never had — visualized, queryable, and standing guard.
+
+> All screenshots are rendered from the real app UI (same theme, fonts, layouts)
+> via golden tests in `mobile/test/screenshots/`. Regenerate with
 > `flutter test test/screenshots --update-goldens`.
 
 ## Documentation
 
 - [User Guide](docs/user-guide.md) — visual walkthrough of every app section
+- [HEIDES](https://github.com/AbduljabbarBXR/heides) — the engine: Spine graph, Harmony guards, Grounding plans
 - [Plugin API](docs/plugin-api.md) — manifest format, hooks, permissions
 - [Hook Reference](docs/hook-reference.md) — every hook and its arguments
 - [Security](docs/security.md) — threat model and hardening notes
 - [Architecture](ARCHITECTURE.md) — full design document
 
-The desktop app ships with an in-app documentation viewer:
-**Help → Documentation** (or the Documentation link in the welcome dialog).
+The app ships with an in-app documentation viewer: **Help → Documentation**.
 
 ## Table of Contents
 
@@ -39,11 +32,8 @@ The desktop app ships with an in-app documentation viewer:
 - [Documentation](#documentation)
 - [Architecture](#architecture)
 - [Installation](#installation)
-  - [Terminal CLI](#terminal-cli)
-  - [Mobile/Desktop App](#mobiledesktop-app)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
-- [Supported Models](#supported-models)
 - [Plugin System](#plugin-system)
 - [Development](#development)
 - [Contributing](#contributing)
@@ -53,81 +43,69 @@ The desktop app ships with an in-app documentation viewer:
 
 ## Features
 
-### Terminal CLI
-- Interactive TUI with blessed
-- Git diff analysis with AI rationale
-- Tree-sitter AST parsing for JS, TS, Python, Go, Rust
-- Dependency graph builder (ASCII, DOT, JSON)
-- Security scanner plugin (hardcoded passwords, eval, innerHTML)
-- Plugin loader with manifest + hooks
-- LLM abstraction layer
+### First Launch
 
-### Cross-Platform App (Flutter)
+![First Launch](assets/images/screens-jpg/logo-picker.jpg)
 
-#### Welcome & Onboarding
+- Choose a logo for your Lens from five identity variants
+- **HEIDES engine setup** — one click installs the engine locally (no account, no cloud)
+- Interactive tour of the neural mesh, query, review, and guards
 
-![Welcome & Onboarding](assets/images/screens/welcome.png)
+### Neural Mesh (Graph)
 
-- Interactive 4-step tour covering graph, chat, review, and plugins
-- ASCII art logo and quick links (documentation, repository, marketplace)
-- **Open Project** starts background indexing with a live progress overlay
-
-#### Explorer (File Tree)
-
-![Explorer](assets/images/screens/explorer.png)
-
-- Language-aware file tree with colored icons for Dart, TS/JS, Python, config
-- Sidebar closed by default — toggle with the Explorer icon or `Ctrl+1`
-- Click any file to open the viewer with breadcrumbs and line numbers (`Esc` to return)
-
-#### Plan Mode
-
-![Plan Mode](assets/images/screens/plan.png)
-
-- Describe a feature and generate an architecture scaffold
-- Covers edge cases, error handling, and design patterns
-- Creates real project files from the scaffold
-
-#### Workflow (Chat)
-
-![Workflow](assets/images/screens/workflow.png)
-
-- Chat with an AI assistant that has full project context (file tree, dependencies, findings, entry points)
-- Markdown rendering with syntax-highlighted code blocks
-- Providers: OpenRouter, OpenAI, Anthropic, Gemini, Ollama
-
-#### Neural Graph
-
-![Neural Graph](assets/images/screens/graph.png)
+![Neural Mesh](assets/images/screens-jpg/graph.jpg)
 
 - Layered dependency layout (Sugiyama-style) with aligned columns
-- Orthogonal edges that route around cards with elbow joints
+- **Orthogonal edges** that route around cards — dependency flow, back-edges/cycles, and vertical links are color-coded
 - Filter by node type, search, grid view toggle
 - Navigation: drag to pan, double-click / wheel / pinch to zoom, minimap, fit-to-view
 
-#### Review (Findings)
+### Explorer (File Tree)
 
-![Review](assets/images/screens/review.png)
+![Explorer](assets/images/screens-jpg/explorer.jpg)
 
-- Findings sorted critical → warning → info from static analysis
-- Click a finding to preview the exact file with the target line highlighted
-- Inline suggestions with every finding
+- Language-aware file tree with colored icons
+- Sidebar closed by default — toggle with the Explorer icon or `Ctrl+1`
+- Click any file to open the viewer with breadcrumbs and line numbers (`Esc` to return)
 
-#### Plugins (Marketplace)
+### Query (Workflow Chat)
 
-![Plugins](assets/images/screens/plugins.png)
+![Query](assets/images/screens-jpg/workflow.jpg)
+
+- Ask the nervous system about your code — grounded in the HEIDES graph, not guesses
+- Automatic `spine.query` on symbols mentioned in your question
+- Workspace manifest (symbols, entrypoints, hubs) injected into every request
+- Providers: OpenRouter, OpenAI, Anthropic, Gemini, Ollama (optional)
+
+### Review (Findings)
+
+![Review](assets/images/screens-jpg/review.jpg)
+
+- Real HEIDES `harmony` findings: security taint, edge cases, dependency risk
+- Sorted blocker → critical → warning → info with file:line evidence
+- Click a finding to preview the exact file and line
+
+### Plan
+
+![Plan](assets/images/screens-jpg/plan.jpg)
+
+- Describe a feature; generate an architecture scaffold checked against the graph
+- Grounding validates the plan before the agent builds
+
+### Plugins (Marketplace)
+
+![Plugins](assets/images/screens-jpg/plugins.jpg)
 
 - Marketplace with live search and category filters
 - One-click install with visual state
 - Sandboxed execution model with manifest-driven permissions
 
-#### Settings
+### Settings
 
-![Settings](assets/images/screens/settings.png)
+![Settings](assets/images/screens-jpg/settings.jpg)
 
-- Provider selection (OpenRouter, OpenAI, Anthropic, Gemini, Ollama)
-- Model dropdown per provider, API keys in secure storage
-- **Test Connection** validates the key against the provider
+- Provider selection and model dropdown per provider
+- API keys in secure storage, **Test Connection** validation
 
 ### Indexing Engine
 - SQLite-backed file scanner
@@ -145,23 +123,19 @@ The desktop app ships with an in-app documentation viewer:
 ## Architecture
 
 ```
-Spikey/
-├── packages/cli/                 # Terminal CLI (Node.js + TypeScript)
-│   ├── src/
-│   │   ├── commands/             # CLI command handlers
-│   │   ├── analysis/             # Diff, AST, graph builders
-│   │   ├── plugins/              # Plugin loader, sandbox, IPC
-│   │   ├── ai/                   # LLM providers, prompt templates
-│   │   └── models/               # TypeScript types
-│   ├── plugins/                  # Built-in plugins
-│   └── tests/
-├── mobile/                       # Flutter cross-platform app
+heides-lens/
+├── mobile/                       # Heides Lens — Flutter desktop app
 │   ├── lib/
 │   │   ├── core/                 # App shell, providers, services
-│   │   ├── features/             # Plan, Workflow, Graph, Review, Plugins
-│   │   ├── shared/               # Themes, widgets, extensions
+│   │   │   └── services/
+│   │   │       ├── heides_service.dart     # MCP client (spawns `heides mcp`)
+│   │   │       ├── spikey_system_prompt.dart # HEIDES-aware AI prompt
+│   │   │       └── llm_service.dart        # Optional LLM providers
+│   │   ├── features/             # Plan, Query, Graph, Review, Plugins
+│   │   ├── shared/               # Themes, logos, widgets
 │   │   └── data/                 # Indexing engine, SQLite
 │   └── test/
+├── packages/                     # Supporting tooling (CLI, registry)
 ├── ARCHITECTURE.md               # Full design document
 └── README.md                     # This file
 ```
@@ -169,35 +143,25 @@ Spikey/
 ### Data Flow
 
 ```
-Git Push / File Save
-  → LSP / Tree-sitter AST
-  → Static Analyzers (security, complexity)
-  → Dependency Graph Builder
-  → LLM Review (with RAG context)
-  → Results → UI (diff + scaffold + neural graph + checklist)
+Open a folder
+  → HEIDES spine.scan maps files, symbols, calls into .heides/index.db
+  → Lens renders the neural mesh from the graph
+  → spine.describe / spine.query ground every AI answer (kilobytes, not megabytes)
+  → harmony.check surfaces findings with file:line evidence
+  → harmony.staged gates every proposed patch before it touches disk
 ```
 
 ## Installation
 
-### Terminal CLI
+### HEIDES Engine (required)
 
-Requirements: Node.js 18+, npm
+The app installs HEIDES for you on first run. Manually:
 
 ```bash
-cd packages/cli
-npm install
-npm run build
-node dist/index.js --help
+npm install -g heides        # or: curl -fsSL .../install.sh | bash
 ```
 
-Global install:
-```bash
-cd packages/cli
-npm link
-spikey --help
-```
-
-### Mobile/Desktop App
+### Desktop App
 
 Requirements: Flutter 3.16+, Dart 3.2+
 
@@ -225,37 +189,36 @@ flutter build ios
 
 ## Quick Start
 
-### CLI
+### HEIDES CLI
 ```bash
-# Analyze a project
-spikey analyze --path /path/to/project
+# Map the codebase into the persistent spine graph
+heides scan
 
-# Show git diff with AI rationale
-spikey diff --path /path/to/project
+# Who calls this symbol? Who imports it?
+heides query callers send_order
 
-# Render dependency graph
-spikey graph --path /path/to/project --format ascii
+# Guard the whole workspace
+heides check
 
-# Interactive TUI
-spikey
+# Gate an agent's diff before it lands
+heides staged patch.diff
+
+# Validate a plan against the real graph
+heides plan "refactor the checkout flow"
 ```
 
 ### App
-1. Launch Spikey
-2. File > Open Project (select a codebase)
-3. Choose mode: Plan, Workflow, Graph, Review, Plugins
-4. Configure AI provider in Settings
+1. Launch Heides Lens
+2. First run: pick a logo → HEIDES engine installs itself (one click)
+3. **Open a folder** — the neural mesh renders from the spine graph
+4. Ask the nervous system anything: hover the graph, query symbols, review findings
 
 ## Configuration
 
-### CLI
-```bash
-spikey config set provider openrouter
-spikey config set model openai/gpt-4o
-spikey config set apiKey sk-or-...
-```
+### HEIDES
+HEIDES needs no configuration — local by default, no account, no cloud.
 
-### App
+### App (optional AI)
 Settings screen provides:
 - Provider selection (OpenRouter, OpenAI, Anthropic, Gemini, Ollama)
 - Model dropdown per provider
@@ -290,7 +253,7 @@ Settings screen provides:
 ### Plugin Manifest
 ```json
 {
-  "id": "com.spikey.example-plugin",
+  "id": "com.heideslens.example-plugin",
   "name": "Example Plugin",
   "version": "1.0.0",
   "description": "Does something useful",
@@ -311,9 +274,9 @@ Settings screen provides:
 
 ### Marketplace
 ```bash
-spikey plugin search security
-spikey plugin install com.spikey.security-scanner
-spikey plugin list
+heides plugin search security
+heides plugin install com.heideslens.security-scanner
+heides plugin list
 ```
 
 ## Development
@@ -326,8 +289,8 @@ spikey plugin list
 
 ### Setup
 ```bash
-git clone https://github.com/yourusername/spikey.git
-cd spikey
+git clone https://github.com/AbduljabbarBXR/heides-lens.git
+cd heides-lens
 
 # Install CLI dependencies
 cd packages/cli
@@ -402,7 +365,7 @@ Contributions are welcome. Please follow these guidelines:
 
 ### Reporting Issues
 Please include:
-- Spikey version
+- Heides Lens version
 - Platform (OS, Flutter version, Node version)
 - Steps to reproduce
 - Expected vs actual behavior

@@ -79,7 +79,7 @@ const List<DocsSection> docsSections = [
   ),
   DocsSection(
     title: 'Plugins',
-    subtitle: 'Extend Spikey',
+    subtitle: 'Extend Heides Lens',
     image: 'assets/images/screens/plugins.png',
     bullets: [
       'Browse the marketplace with live search and categories',

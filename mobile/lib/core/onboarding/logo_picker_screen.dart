@@ -37,7 +37,7 @@ class _LogoPickerScreenState extends State<LogoPickerScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  'Spikey',
+                  'Heides Lens',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 40,
@@ -152,7 +152,7 @@ class _LogoOptionCardState extends State<_LogoOptionCard> {
               SpikeyLogoMark(id: widget.logo.id, size: 48),
               const SizedBox(height: 12),
               const Text(
-                'Spikey',
+                'Heides Lens',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,

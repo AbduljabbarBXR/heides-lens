@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
 import 'package:spikey/shared/logos.dart';
 import 'package:spikey/core/onboarding/logo_picker_screen.dart';
+import 'package:spikey/core/onboarding/heides_setup_screen.dart';
 import 'package:spikey/core/providers/navigation_provider.dart';
 import 'package:spikey/core/providers/project_provider.dart';
 import 'package:spikey/core/providers/indexing_provider.dart';
@@ -37,6 +38,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   bool _onboardingChecked = false;
   bool _showOnboarding = false;
   bool _showLogoPicker = false;
+  bool _showHeidesSetup = false;
+  bool _heidesSetupChecked = false;
   int _logoChoice = 1;
   bool _isIndexing = false;
   double _indexingProgress = 0;
@@ -60,15 +63,28 @@ class _AppShellState extends ConsumerState<AppShell> {
     final prefs = await SharedPreferences.getInstance();
     final completed = prefs.getBool('onboarding_completed') ?? false;
     final logoChoice = prefs.getInt('logo_choice');
+    final heidesSetupDone = prefs.getBool('heides_setup_done') ?? false;
     if (mounted) {
       setState(() {
         _onboardingChecked = true;
+        _heidesSetupChecked = true;
         if (logoChoice != null) _logoChoice = logoChoice;
         _showLogoPicker = logoChoice == null;
+        _showHeidesSetup = logoChoice != null && !heidesSetupDone;
       });
-      if (logoChoice != null && !completed) {
+      if (logoChoice != null && heidesSetupDone && !completed) {
         setState(() => _showOnboarding = true);
       }
+    }
+  }
+
+  Future<void> _markHeidesSetupDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('heides_setup_done', true);
+    if (mounted) {
+      setState(() => _showHeidesSetup = false);
+      final completed = prefs.getBool('onboarding_completed') ?? false;
+      if (!completed) setState(() => _showOnboarding = true);
     }
   }
 
@@ -181,18 +197,28 @@ class _AppShellState extends ConsumerState<AppShell> {
           setState(() {
             _showLogoPicker = false;
           });
-          // Load the chosen logo, then continue to onboarding if needed
+          // Load the chosen logo, then continue: HEIDES setup → onboarding
           SharedPreferences.getInstance().then((prefs) {
             final chosen = prefs.getInt('logo_choice') ?? 1;
-            final completed = prefs.getBool('onboarding_completed') ?? false;
+            final heidesSetupDone = prefs.getBool('heides_setup_done') ?? false;
             if (mounted) {
-              setState(() => _logoChoice = chosen);
-              if (!completed) {
-                setState(() => _showOnboarding = true);
+              setState(() {
+                _logoChoice = chosen;
+                _showHeidesSetup = !heidesSetupDone;
+              });
+              if (heidesSetupDone) {
+                _markHeidesSetupDone();
               }
             }
           });
         },
+      );
+    }
+
+    // Show HEIDES engine setup (first run only)
+    if (_showHeidesSetup && _heidesSetupChecked) {
+      return HeidesSetupScreen(
+        onComplete: _markHeidesSetupDone,
       );
     }
 
@@ -236,7 +262,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   const SizedBox(width: 12),
                   // Logo (chosen variant) — white
                   Tooltip(
-                    message: 'Spikey',
+                    message: 'Heides Lens',
                     child: MouseRegion(
                       cursor: SystemMouseCursors.basic,
                       child: _buildLogoMark(),
@@ -425,14 +451,18 @@ class _AppShellState extends ConsumerState<AppShell> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.folder_open_rounded, size: 64, color: AppColors.textMuted),
+                Icon(Icons.account_tree_rounded, size: 64, color: AppColors.textMuted),
                 const SizedBox(height: 16),
-                Text('Select a project to start', style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
+                Text('Open a folder to see the neural mesh',
+                    style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
+                const SizedBox(height: 8),
+                Text('HEIDES maps every file, symbol, and call into a living graph',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: _showProjectSelector,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Open Project'),
+                  icon: const Icon(Icons.folder_open_rounded, size: 18),
+                  label: const Text('Open Folder'),
                 ),
               ],
             ),
