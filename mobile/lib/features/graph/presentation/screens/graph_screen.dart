@@ -56,6 +56,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
   bool _isGridView = false;
   bool _isPanning = false;
   Map<String, Rect> _moduleBands = {};
+  DateTime? _lastBackgroundTap;
 
   @override
   void dispose() {
@@ -340,18 +341,14 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                         }
                         return Stack(
                       children: [
-                        // Graph canvas — InteractiveViewer handles pan/zoom on background
+                        // Graph canvas — InteractiveViewer handles pan/zoom.
+                        // NOTE: no GestureDetector wrapper here. Any wrapper tap
+                        // or double-tap recognizer enters the gesture arena and
+                        // competes with (and can beat) the card tap recognizers.
+                        // Deselect + double-click zoom live on a raw Listener
+                        // layer BEHIND the cards (below), which never competes.
                         RepaintBoundary(
-                          child: GestureDetector(
-                            // Double-click to zoom in at the cursor. NOTE: this
-                            // wrapper must NOT have an onTap — an outer tap
-                            // recognizer wins the gesture arena over card taps
-                            // (ancestor added first), which would break clicking
-                            // cards. Background deselect lives on a layer
-                            // BEHIND the cards instead (see below).
-                            onDoubleTapDown: (details) =>
-                                _zoomAtPoint(details.localPosition, 1.5),
-                            child: InteractiveViewer(
+                          child: InteractiveViewer(
                           key: _viewerKey,
                           transformationController: _transformController,
                           constrained: false,
@@ -370,14 +367,24 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                // Background tap layer — sits BEHIND nodes so
-                                // clicking empty canvas deselects, while card
-                                // taps are caught by the cards on top. Using a
-                                // raw Listener avoids any gesture-arena conflict
-                                // with the card tap recognizers.
+                                // Background tap layer — sits BEHIND nodes so clicking empty canvas
+                                // deselects, while card taps are caught by the
+                                // cards on top. A raw Listener never enters the
+                                // gesture arena, so it cannot steal card taps.
+                                // Double-click on empty space zooms in.
                                 Positioned.fill(
                                   child: Listener(
-                                    onPointerDown: (_) {
+                                    onPointerDown: (event) {
+                                      final now = DateTime.now();
+                                      final last = _lastBackgroundTap;
+                                      _lastBackgroundTap = now;
+                                      if (last != null &&
+                                          now.difference(last) < const Duration(milliseconds: 300)) {
+                                        // Double-click → zoom at cursor
+                                        _zoomAtPoint(event.localPosition, 1.5);
+                                        _lastBackgroundTap = null;
+                                        return;
+                                      }
                                       if (_selectedNode != null || _hoveredNode != null) {
                                         setState(() {
                                           _selectedNode = null;
@@ -471,7 +478,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                             ),
                           ),
                         ),
-                          ),
                         ),
                         // Zoom controls (bottom-right, above minimap)
                         Positioned(
