@@ -136,7 +136,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           _indexingStatus = 'Complete!';
         });
         await Future.delayed(const Duration(milliseconds: 500));
-        setState(() => _isIndexing = false);
+        if (mounted) setState(() => _isIndexing = false);
       }
       // Preload graph + review data in the background
       _preloadData(project.path);
@@ -599,9 +599,11 @@ class _AppShellState extends ConsumerState<AppShell> {
           onTap: () async {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('onboarding_completed', false);
-            setState(() {
-              _showOnboarding = true;
-            });
+            if (mounted) {
+              setState(() {
+                _showOnboarding = true;
+              });
+            }
           },
           child: const Text('Show Welcome'),
         ),

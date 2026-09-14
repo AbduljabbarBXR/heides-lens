@@ -112,11 +112,13 @@ class _FileContentViewerState extends State<FileContentViewer> {
     try {
       final file = File(widget.filePath);
       await file.writeAsString(_controller.text);
-      setState(() {
-        _content = _controller.text;
-        _isEditing = false;
-        _hasUnsavedChanges = false;
-      });
+      if (mounted) {
+        setState(() {
+          _content = _controller.text;
+          _isEditing = false;
+          _hasUnsavedChanges = false;
+        });
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

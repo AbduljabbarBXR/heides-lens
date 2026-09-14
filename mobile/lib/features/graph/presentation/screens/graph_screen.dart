@@ -576,7 +576,9 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                   setState(() { _indexing = true; _indexProgress = 0.0; });
                   await engine.indexProject(
                     projectState.activeProject!.path,
-                    onProgress: (current, total) => setState(() => _indexProgress = current / total),
+                    onProgress: (current, total) {
+                      if (mounted) setState(() => _indexProgress = current / total);
+                    },
                   );
                   ref.invalidate(indexedFilesProvider(projectState.activeProject!.path));
                   ref.invalidate(graphDataProvider(projectState.activeProject!.path));
@@ -587,7 +589,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                     );
                   }
                 } finally {
-                  setState(() => _indexing = false);
+                  if (mounted) setState(() => _indexing = false);
                 }
               }
             },
