@@ -343,16 +343,12 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                         // Graph canvas — InteractiveViewer handles pan/zoom on background
                         RepaintBoundary(
                           child: GestureDetector(
-                            // Click on empty background clears the selection
-                            onTap: () {
-                              if (_selectedNode != null || _hoveredNode != null) {
-                                setState(() {
-                                  _selectedNode = null;
-                                  _hoveredNode = null;
-                                });
-                              }
-                            },
-                            // Double-click to zoom in at the cursor
+                            // Double-click to zoom in at the cursor. NOTE: this
+                            // wrapper must NOT have an onTap — an outer tap
+                            // recognizer wins the gesture arena over card taps
+                            // (ancestor added first), which would break clicking
+                            // cards. Background deselect lives on a layer
+                            // BEHIND the cards instead (see below).
                             onDoubleTapDown: (details) =>
                                 _zoomAtPoint(details.localPosition, 1.5),
                             child: InteractiveViewer(
@@ -374,6 +370,24 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
+                                // Background tap layer — sits BEHIND nodes so
+                                // clicking empty canvas deselects, while card
+                                // taps are caught by the cards on top. Using a
+                                // raw Listener avoids any gesture-arena conflict
+                                // with the card tap recognizers.
+                                Positioned.fill(
+                                  child: Listener(
+                                    onPointerDown: (_) {
+                                      if (_selectedNode != null || _hoveredNode != null) {
+                                        setState(() {
+                                          _selectedNode = null;
+                                          _hoveredNode = null;
+                                        });
+                                      }
+                                    },
+                                    child: const SizedBox.expand(),
+                                  ),
+                                ),
                                 // Module bands (Modules facet only)
                                 if (_facet == GraphFacet.modules)
                                   Positioned.fill(
@@ -493,19 +507,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                             ],
                           ),
                         ),
-                        // Minimap (bottom-right corner)
-                        Positioned(
-                          right: 16,
-                          bottom: 16,
-                          child: _Minimap(
-                            canvasWidth: canvasWidth,
-                            canvasHeight: canvasHeight,
-                            nodePositions: _nodePositions,
-                            visibleFiles: visibleFiles,
-                            controller: _transformController,
-                            viewportSize: viewportSize,
-                          ),
-                        ),
                         // Facet summary (top-left, shows what this slice contains)
                         Positioned(
                           left: 16,
@@ -532,12 +533,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                               ],
                             ),
                           ),
-                        ),
-                        // Legend (bottom-left corner)
-                        Positioned(
-                          left: 16,
-                          bottom: 16,
-                          child: _Legend(visibleTypes: _visibleTypes),
                         ),
                       ],
                     );
@@ -1541,197 +1536,6 @@ class _ModuleBandPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ModuleBandPainter oldDelegate) =>
       oldDelegate.bands != bands;
-}
-
-// ==================== MINIMAP ====================
-
-class _Minimap extends StatelessWidget {
-  final double canvasWidth;
-  final double canvasHeight;
-  final Map<String, Offset> nodePositions;
-  final List<IndexedFile> visibleFiles;
-  final TransformationController controller;
-  final Size viewportSize;
-
-  const _Minimap({
-    required this.canvasWidth,
-    required this.canvasHeight,
-    required this.nodePositions,
-    required this.visibleFiles,
-    required this.controller,
-    required this.viewportSize,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const minimapWidth = 160.0;
-    const minimapHeight = 100.0;
-    final scaleX = minimapWidth / canvasWidth.clamp(1.0, double.infinity);
-    final scaleY = minimapHeight / canvasHeight.clamp(1.0, double.infinity);
-    final minimapScale = math.min(scaleX, scaleY);
-
-    // Only the minimap repaints on pan/zoom — no full-screen rebuilds
-    return ValueListenableBuilder<Matrix4>(
-      valueListenable: controller,
-      builder: (context, matrix, _) {
-        final viewScale = matrix.getMaxScaleOnAxis();
-        final translation = matrix.getTranslation();
-        final viewOffset = Offset(translation.x, translation.y);
-        return Container(
-          width: minimapWidth,
-          height: minimapHeight,
-          decoration: BoxDecoration(
-            color: AppColors.surface.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: CustomPaint(
-              painter: _MinimapPainter(
-                nodePositions: nodePositions,
-                files: visibleFiles,
-                scale: minimapScale,
-                viewScale: viewScale,
-                viewOffset: viewOffset,
-                viewportSize: viewportSize,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _MinimapPainter extends CustomPainter {
-  final Map<String, Offset> nodePositions;
-  final List<IndexedFile> files;
-  final double scale;
-  final double viewScale;
-  final Offset viewOffset;
-  final Size viewportSize;
-
-  _MinimapPainter({
-    required this.nodePositions,
-    required this.files,
-    required this.scale,
-    required this.viewScale,
-    required this.viewOffset,
-    required this.viewportSize,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final dotPaint = Paint()..style = PaintingStyle.fill;
-
-    for (final file in files) {
-      final pos = nodePositions[file.path];
-      if (pos == null) continue;
-      dotPaint.color = AppColors.primary.withValues(alpha: 0.6);
-      canvas.drawCircle(Offset(pos.dx * scale, pos.dy * scale), 2, dotPaint);
-    }
-
-    // Draw the visible viewport rectangle
-    final rectPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = AppColors.primary.withValues(alpha: 0.9);
-
-    // Convert viewport screen bounds to canvas world coords: world = (screen - offset) / scale
-    final leftWorld = (0 - viewOffset.dx) / viewScale;
-    final topWorld = (0 - viewOffset.dy) / viewScale;
-    final rightWorld = (viewportSize.width - viewOffset.dx) / viewScale;
-    final bottomWorld = (viewportSize.height - viewOffset.dy) / viewScale;
-
-    final rect = Rect.fromLTRB(
-      (leftWorld * scale).clamp(0, size.width),
-      (topWorld * scale).clamp(0, size.height),
-      (rightWorld * scale).clamp(0, size.width),
-      (bottomWorld * scale).clamp(0, size.height),
-    );
-    canvas.drawRect(rect, rectPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _MinimapPainter oldDelegate) {
-    return oldDelegate.viewScale != viewScale ||
-        oldDelegate.viewOffset != viewOffset ||
-        oldDelegate.viewportSize != viewportSize;
-  }
-}
-
-// ==================== LEGEND ====================
-
-class _Legend extends StatelessWidget {
-  final Set<String> visibleTypes;
-
-  const _Legend({required this.visibleTypes});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Node Types', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-          const SizedBox(height: 6),
-          ...nodeTypeColors.entries.where((e) => visibleTypes.contains(e.key)).map((entry) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(width: 8, height: 8, decoration: BoxDecoration(color: entry.value, shape: BoxShape.circle)),
-                  const SizedBox(width: 6),
-                  Text(nodeTypeLabels[entry.key] ?? entry.key, style: const TextStyle(fontSize: 9, color: AppColors.textSecondary)),
-                ],
-              ),
-            );
-          }),
-          const SizedBox(height: 8),
-          const Text('Edge Types', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-          const SizedBox(height: 6),
-          _LegendEdge(color: AppColors.border.withValues(alpha: 0.55), label: 'Dependency flow'),
-          _LegendEdge(color: AppColors.warning.withValues(alpha: 0.4), label: 'Back-edge / cycle'),
-          _LegendEdge(color: AppColors.info.withValues(alpha: 0.3), label: 'Vertical link'),
-        ],
-      ),
-    );
-  }
-}
-
-class _LegendEdge extends StatelessWidget {
-  final Color color;
-  final String label;
-
-  const _LegendEdge({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 3),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 16,
-            height: 0,
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: color, width: 2))),
-          ),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontSize: 9, color: AppColors.textSecondary)),
-        ],
-      ),
-    );
-  }
 }
 
 // ==================== CONTROL BUTTON ====================
