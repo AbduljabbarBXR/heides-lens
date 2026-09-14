@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
 import 'package:spikey/core/providers/settings_provider.dart';
 import 'package:spikey/core/providers/project_provider.dart';
+import 'package:spikey/core/providers/heides_provider.dart';
 import 'package:spikey/core/services/llm_service.dart';
-import 'package:spikey/core/services/project_context.dart';
-import 'package:spikey/core/providers/indexing_provider.dart';
+import 'package:spikey/core/services/spikey_system_prompt.dart';
 
 class WorkflowScreen extends ConsumerStatefulWidget {
   const WorkflowScreen({super.key});
@@ -19,31 +19,70 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
   final List<ChatMessage> _messages = [];
   final ScrollController _scrollController = ScrollController();
   bool _isProcessing = false;
-  String? _projectContext;
+  bool _heidesAvailable = false;
+  String? _heidesManifest;
 
   @override
   void initState() {
     super.initState();
-    _loadProjectContext();
+    _loadHeidesContext();
   }
 
-  Future<void> _loadProjectContext() async {
+  Future<void> _loadHeidesContext() async {
     final projectState = ref.read(projectProvider);
     final project = projectState.activeProject;
     if (project == null) return;
 
     try {
-      final engine = ref.read(indexingEngineProvider);
-      final context = await ProjectContext.buildContext(
-        projectPath: project.path,
-        engine: engine,
-      );
-      if (mounted) {
-        setState(() => _projectContext = context);
+      final available = await ref.read(heidesAvailableProvider.future);
+      if (mounted) setState(() => _heidesAvailable = available);
+      if (available) {
+        final manifest = await ref.read(heidesManifestProvider(project.path).future);
+        if (mounted) setState(() => _heidesManifest = manifest);
       }
-    } catch (e) {
-      // Context loading failed, continue without it
+    } catch (_) {
+      // HEIDES unavailable — continue with plain context
     }
+  }
+
+  /// Pull code-like identifiers out of the question (backticked tokens,
+  /// camelCase, snake_case) so we can ask HEIDES about them.
+  List<String> _extractIdentifiers(String text) {
+    final identifiers = <String>{};
+
+    for (final match in RegExp(r'`([^`]+)`').allMatches(text)) {
+      final token = match.group(1)?.trim() ?? '';
+      if (token.isNotEmpty && token.length < 64) identifiers.add(token);
+    }
+    for (final match in RegExp(r'\b([a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*)\b').allMatches(text)) {
+      identifiers.add(match.group(1)!);
+    }
+    for (final match in RegExp(r'\b([a-z][a-z0-9]*_[a-z0-9_]+)\b').allMatches(text)) {
+      identifiers.add(match.group(1)!);
+    }
+
+    return identifiers.take(4).toList();
+  }
+
+  /// Ask HEIDES about identifiers in the question; returns cited snippets.
+  Future<String?> _queryHeides(String question) async {
+    if (!_heidesAvailable) return null;
+    final symbols = _extractIdentifiers(question);
+    if (symbols.isEmpty) return null;
+
+    final service = ref.read(heidesServiceProvider);
+    final results = <String>[];
+    for (final symbol in symbols) {
+      try {
+        final search = await service.query('search', symbol);
+        if (search.isNotEmpty && !search.contains('no symbol matches')) {
+          results.add(search.trim());
+        }
+      } catch (_) {
+        // skip failed query
+      }
+    }
+    return results.isEmpty ? null : results.join('\n');
   }
 
   @override
@@ -81,25 +120,23 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
 
     final chatHistory = <Map<String, String>>[];
 
-    // Build system prompt with project context
-    final systemPrompt = StringBuffer();
-    systemPrompt.writeln('You are Spikey, an AI coding assistant embedded in the Spikey app. You help developers analyze code, find bugs, suggest improvements, and understand architecture.');
-    systemPrompt.writeln();
+    // Ask HEIDES about any symbols mentioned in the question
+    final heidesContext = await _queryHeides(text);
 
-    if (_projectContext != null && _projectContext!.isNotEmpty) {
-      systemPrompt.writeln('You have access to the current project context. Use it to give specific, relevant answers about the codebase.');
-      systemPrompt.writeln();
-      systemPrompt.writeln(_projectContext);
-    } else {
-      systemPrompt.writeln('No project is currently loaded. Ask the user to open a project first, or provide general coding help.');
-    }
+    final project = ref.read(projectProvider).activeProject;
 
-    systemPrompt.writeln();
-    systemPrompt.writeln('IMPORTANT: When referencing files, use their full paths. Format code blocks with triple backticks. Be concise and actionable.');
+    // Build the Spikey system prompt (HEIDES-aware)
+    final systemPromptText = SpikeySystemPrompt.build(
+      projectName: project?.name ?? 'No project',
+      projectPath: project?.path,
+      heidesManifest: _heidesManifest,
+      findingsSummary: heidesContext,
+      heidesAvailable: _heidesAvailable,
+    );
 
     chatHistory.add({
       'role': 'system',
-      'content': systemPrompt.toString(),
+      'content': systemPromptText,
     });
 
     // Add conversation history
@@ -149,44 +186,50 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
                 Text('Workflow', style: AppTextStyles.h3),
                 const Spacer(),
                 if (project != null) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceHover,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.folder_rounded, size: 12, color: AppColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text(project.name, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-                      ],
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceHover,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.folder_rounded, size: 12, color: AppColors.textSecondary),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(project.name,
+                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                 ],
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _projectContext != null ? Colors.green.withOpacity(0.15) : AppColors.surfaceHover,
+                    color: _heidesAvailable ? Colors.green.withValues(alpha: 0.15) : AppColors.surfaceHover,
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: _projectContext != null ? Colors.green.withOpacity(0.3) : AppColors.border),
+                    border: Border.all(color: _heidesAvailable ? Colors.green.withValues(alpha: 0.3) : AppColors.border),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _projectContext != null ? Icons.visibility : Icons.visibility_off,
+                        _heidesAvailable ? Icons.visibility : Icons.visibility_off,
                         size: 12,
-                        color: _projectContext != null ? Colors.green : AppColors.textMuted,
+                        color: _heidesAvailable ? Colors.green : AppColors.textMuted,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _projectContext != null ? 'AI can see project' : 'No project loaded',
+                        _heidesAvailable ? 'HEIDES' : 'no HEIDES',
                         style: TextStyle(
-                          color: _projectContext != null ? Colors.green : AppColors.textMuted,
+                          color: _heidesAvailable ? Colors.green : AppColors.textMuted,
                           fontSize: 11,
                         ),
                       ),
@@ -194,16 +237,19 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceHover,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Text(
-                    '${config.provider} / ${config.model}',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceHover,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Text(
+                      '${config.provider} / ${config.model}',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
               ],
@@ -224,14 +270,19 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
                           style: AppTextStyles.body.copyWith(color: AppColors.textMuted),
                         ),
                         const SizedBox(height: 8),
-                        if (project != null && _projectContext != null)
+                        if (project != null && _heidesManifest != null)
                           Text(
-                            'Project context loaded (${_projectContext!.length} chars)',
-                            style: TextStyle(color: Colors.green.withOpacity(0.7), fontSize: 12),
+                            'HEIDES indexed workspace (${_heidesManifest!.split('\n').first})',
+                            style: TextStyle(color: Colors.green.withValues(alpha: 0.7), fontSize: 12),
+                          )
+                        else if (project != null && _heidesAvailable)
+                          Text(
+                            'Indexing workspace with HEIDES...',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                           )
                         else if (project != null)
                           Text(
-                            'Loading project context...',
+                            'HEIDES not detected — install from github.com/AbduljabbarBXR/heides',
                             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                           )
                         else

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
 import 'package:spikey/core/providers/findings_provider.dart';
+import 'package:spikey/core/providers/heides_provider.dart';
 import 'package:spikey/core/providers/project_provider.dart';
 
 class ReviewScreen extends ConsumerWidget {
@@ -19,7 +20,20 @@ class ReviewScreen extends ConsumerWidget {
       );
     }
 
+    // Prefer HEIDES harmony findings; fall back to the local index findings.
+    final heidesAsync = ref.watch(heidesFindingsProvider(activeProject.path));
     final findingsAsync = ref.watch(findingsProvider(activeProject.path));
+
+    final resolved = heidesAsync.when(
+      data: (heidesFindings) {
+        if (heidesFindings != null) {
+          return AsyncValue.data(heidesFindings);
+        }
+        return findingsAsync;
+      },
+      loading: () => findingsAsync,
+      error: (_, __) => findingsAsync,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -37,7 +51,7 @@ class ReviewScreen extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Text('Review', style: AppTextStyles.h3),
                 const Spacer(),
-                findingsAsync.when(
+                resolved.when(
                   data: (findings) {
                     final criticalCount = findings.where((f) => f['severity'] == 'critical').length;
                     final warningCount = findings.where((f) => f['severity'] == 'warning').length;
@@ -59,7 +73,7 @@ class ReviewScreen extends ConsumerWidget {
             ),
           ),
           Expanded(
-            child: findingsAsync.when(
+            child: resolved.when(
               data: (findings) {
                 if (findings.isEmpty) {
                   return Center(

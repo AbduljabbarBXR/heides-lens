@@ -31,3 +31,4 @@ tmp
 **/*.d.ts
 !**/*.d.ts
 failures/
+.heides/

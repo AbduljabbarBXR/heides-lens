@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spikey/core/app_shell.dart';
 import 'package:spikey/core/providers/findings_provider.dart';
+import 'package:spikey/core/providers/heides_provider.dart';
 import 'package:spikey/core/providers/indexing_provider.dart';
 import 'package:spikey/core/providers/navigation_provider.dart';
 import 'package:spikey/core/providers/project_provider.dart';
@@ -116,6 +117,10 @@ Future<ProviderContainer> _buildContainer() async {
     indexedFilesProvider.overrideWith((ref) async => files),
     graphDataProvider.overrideWith((ref, path) async => {'files': files, 'edges': _sampleEdges()}),
     findingsProvider.overrideWith((ref, path) async => _sampleFindings()),
+    // HEIDES is not exercised in screenshots
+    heidesAvailableProvider.overrideWith((ref) async => false),
+    heidesManifestProvider.overrideWith((ref, path) async => null),
+    heidesFindingsProvider.overrideWith((ref, path) async => null),
     projectProvider.overrideWith((ref) => ProjectNotifier()..addProject(Project(
           id: '1', name: 'Spikey', path: projectPath, lastOpened: DateTime.now(),
         ))),
