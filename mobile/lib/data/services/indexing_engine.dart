@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -9,7 +10,17 @@ class IndexDatabase {
   factory IndexDatabase() => _instance;
   IndexDatabase._internal();
 
+  /// Overridable DB location (tests point this at a temp dir).
+  String? overridePath;
+
   Database? _db;
+
+  /// Reset the singleton (used by tests).
+  @visibleForTesting
+  void resetForTest() {
+    _db = null;
+    overridePath = null;
+  }
 
   Future<Database> get db async {
     if (_db != null) return _db!;
@@ -18,21 +29,27 @@ class IndexDatabase {
   }
 
   Future<Database> _initDb() async {
-    final dir = await getApplicationSupportDirectory();
-    final path = p.join(dir.path, 'spikey_index.db');
+    final String path;
+    if (overridePath != null) {
+      path = overridePath!;
+    } else {
+      final dir = await getApplicationSupportDirectory();
+      path = p.join(dir.path, 'spikey_index.db');
+    }
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_path TEXT,
-            path TEXT UNIQUE,
+            path TEXT,
             hash TEXT,
             language TEXT,
             loc INTEGER,
-            last_indexed INTEGER
+            last_indexed INTEGER,
+            UNIQUE(project_path, path)
           )
         ''');
         await db.execute('''
@@ -96,7 +113,35 @@ class IndexDatabase {
         }
         if (oldVersion < 3) {
           // Add project scoping so files from different projects never mix.
-          await db.execute('ALTER TABLE files ADD COLUMN project_path TEXT');
+          try {
+            await db.execute('ALTER TABLE files ADD COLUMN project_path TEXT');
+          } catch (_) {
+            // column may already exist
+          }
+        }
+        if (oldVersion < 4) {
+          // v3 made path globally UNIQUE, which breaks multi-project indexing.
+          // Rebuild the files table so uniqueness is per (project_path, path),
+          // and drop legacy rows that have no project (they cannot be scoped).
+          await db.execute('''
+            CREATE TABLE files_new (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              project_path TEXT,
+              path TEXT,
+              hash TEXT,
+              language TEXT,
+              loc INTEGER,
+              last_indexed INTEGER,
+              UNIQUE(project_path, path)
+            )
+          ''');
+          await db.execute('''
+            INSERT INTO files_new (id, project_path, path, hash, language, loc, last_indexed)
+            SELECT id, project_path, path, hash, language, loc, last_indexed
+            FROM files WHERE project_path IS NOT NULL
+          ''');
+          await db.execute('DROP TABLE files');
+          await db.execute('ALTER TABLE files_new RENAME TO files');
         }
       },
     );
@@ -365,16 +410,20 @@ class IndexingEngine {
       }
 
       final analysis = await FileScanner.analyzeFile(filePath);
-      final fileId = existing != null
-          ? await db.updateFileHash(existing['id'] as int, hash)
-          : await db.insertFile({
-              'project_path': projectPath,
-              'path': relPath,
-              'hash': hash,
-              'language': analysis['language'] as String,
-              'loc': analysis['loc'] as int,
-              'last_indexed': DateTime.now().millisecondsSinceEpoch,
-            });
+      final int fileId;
+      if (existing != null) {
+        fileId = existing['id'] as int;
+        await db.updateFileHash(fileId, hash);
+      } else {
+        fileId = await db.insertFile({
+          'project_path': projectPath,
+          'path': relPath,
+          'hash': hash,
+          'language': analysis['language'] as String,
+          'loc': analysis['loc'] as int,
+          'last_indexed': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
 
       // Delete old symbols/imports/calls/findings before re-inserting
       if (existing != null) {
