@@ -30,3 +30,4 @@ tmp
 **/*.js.map
 **/*.d.ts
 !**/*.d.ts
+failures/
