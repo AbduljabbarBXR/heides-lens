@@ -2,19 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
+import 'package:spikey/shared/logos.dart';
 import 'package:spikey/core/providers/project_provider.dart';
 import 'package:spikey/features/docs/presentation/screens/docs_screen.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-const String asciiLogo = r'''
-  ██████╗ ██████╗ ██╗██╗  ██╗███████╗██╗   ██╗
- ██╔════╝ ██╔══██╗██║██║ ██╔╝██╔════╝╚██╗ ██╔╝
- ███████╗ ██████╔╝██║█████╔╝ █████╗   ╚████╔╝
- ╚════██║ ██╔═══╝ ██║██╔═██╗ ██╔══╝    ╚██╔╝
- ███████║ ██║     ██║██║  ██╗███████╗   ██║
- ╚══════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝''';
 
 class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
@@ -63,41 +56,7 @@ class WelcomeScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.auto_awesome, color: AppColors.background, size: 28),
-                  ),
-                  const SizedBox(width: 16),
-                  Text('Spikey', style: AppTextStyles.h2.copyWith(color: AppColors.primary)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // ASCII art logo
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceHover,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: const Text(
-                  asciiLogo,
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 11,
-                    height: 1.1,
-                    fontFamily: 'monospace',
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
+              const _WelcomeLogo(),
               const SizedBox(height: 24),
               Text('Plugin-first AI coding platform', style: AppTextStyles.h3),
               const SizedBox(height: 8),
@@ -192,5 +151,31 @@ class _LinkRowState extends State<_LinkRow> {
         ),
       ),
     );
+  }
+}
+
+class _WelcomeLogo extends StatefulWidget {
+  const _WelcomeLogo();
+
+  @override
+  State<_WelcomeLogo> createState() => _WelcomeLogoState();
+}
+
+class _WelcomeLogoState extends State<_WelcomeLogo> {
+  int _logoId = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      if (mounted) {
+        setState(() => _logoId = prefs.getInt('logo_choice') ?? 1);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SpikeyLogoFull(id: _logoId, markSize: 52, fontSize: 30);
   }
 }

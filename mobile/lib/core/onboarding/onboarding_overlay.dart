@@ -1,15 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
+import 'package:spikey/shared/logos.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-const String asciiLogo = r'''
-  ██████╗ ██████╗ ██╗██╗  ██╗███████╗██╗   ██╗
- ██╔════╝ ██╔══██╗██║██║ ██╔╝██╔════╝╚██╗ ██╔╝
- ███████╗ ██████╔╝██║█████╔╝ █████╗   ╚████╔╝
- ╚════██║ ██╔═══╝ ██║██╔═██╗ ██╔══╝    ╚██╔╝
- ███████║ ██║     ██║██║  ██╗███████╗   ██║
- ╚══════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝''';
 
 class OnboardingOverlay extends StatefulWidget {
   final VoidCallback onComplete;
@@ -22,6 +15,7 @@ class OnboardingOverlay extends StatefulWidget {
 
 class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProviderStateMixin {
   int _currentStep = 0;
+  int logoId = 1;
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
@@ -62,6 +56,11 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
   @override
   void initState() {
     super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      if (mounted) {
+        setState(() => logoId = prefs.getInt('logo_choice') ?? 1);
+      }
+    });
     _fadeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _slideController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
     _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
@@ -181,18 +180,8 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
                         ),
                         const SizedBox(height: 48),
 
-                        // ASCII art logo
-                        Text(
-                          asciiLogo,
-                          style: TextStyle(
-                            color: step.color,
-                            fontSize: 9,
-                            height: 1.05,
-                            fontFamily: 'monospace',
-                            letterSpacing: 1.1,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
+                        // Chosen logo
+                        SpikeyLogoFull(id: logoId, markSize: 40, fontSize: 26),
                         const SizedBox(height: 24),
 
                         // Icon

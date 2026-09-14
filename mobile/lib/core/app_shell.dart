@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spikey/shared/themes/app_colors.dart';
+import 'package:spikey/shared/logos.dart';
+import 'package:spikey/core/onboarding/logo_picker_screen.dart';
 import 'package:spikey/core/providers/navigation_provider.dart';
 import 'package:spikey/core/providers/project_provider.dart';
 import 'package:spikey/core/providers/indexing_provider.dart';
@@ -34,6 +36,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   bool _isSidebarOpen = false;
   bool _onboardingChecked = false;
   bool _showOnboarding = false;
+  bool _showLogoPicker = false;
+  int _logoChoice = 1;
   bool _isIndexing = false;
   double _indexingProgress = 0;
   String _indexingStatus = '';
@@ -55,11 +59,14 @@ class _AppShellState extends ConsumerState<AppShell> {
   Future<void> _checkOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     final completed = prefs.getBool('onboarding_completed') ?? false;
+    final logoChoice = prefs.getInt('logo_choice');
     if (mounted) {
       setState(() {
         _onboardingChecked = true;
+        if (logoChoice != null) _logoChoice = logoChoice;
+        _showLogoPicker = logoChoice == null;
       });
-      if (!completed) {
+      if (logoChoice != null && !completed) {
         setState(() => _showOnboarding = true);
       }
     }
@@ -167,6 +174,28 @@ class _AppShellState extends ConsumerState<AppShell> {
     final projectState = ref.watch(projectProvider);
     final isExplorer = navState.currentMode == AppMode.explorer;
 
+    // Show logo picker on first launch
+    if (_showLogoPicker && _onboardingChecked) {
+      return LogoPickerScreen(
+        onComplete: () {
+          setState(() {
+            _showLogoPicker = false;
+          });
+          // Load the chosen logo, then continue to onboarding if needed
+          SharedPreferences.getInstance().then((prefs) {
+            final chosen = prefs.getInt('logo_choice') ?? 1;
+            final completed = prefs.getBool('onboarding_completed') ?? false;
+            if (mounted) {
+              setState(() => _logoChoice = chosen);
+              if (!completed) {
+                setState(() => _showOnboarding = true);
+              }
+            }
+          });
+        },
+      );
+    }
+
     // Show onboarding overlay
     if (_showOnboarding && _onboardingChecked) {
       return OnboardingOverlay(
@@ -204,17 +233,16 @@ class _AppShellState extends ConsumerState<AppShell> {
               color: AppColors.surface,
               child: Row(
                 children: [
-                  const SizedBox(width: 16),
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(6),
+                  const SizedBox(width: 12),
+                  // Logo (chosen variant) — white
+                  Tooltip(
+                    message: 'Spikey',
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.basic,
+                      child: _buildLogoMark(),
                     ),
-                    child: Icon(Icons.auto_awesome, color: AppColors.background, size: 14),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 20),
                   _MenuButton(label: 'File', onTap: _showFileMenu),
                   _MenuButton(label: 'View', onTap: _showViewMenu),
                   _MenuButton(label: 'Help', onTap: _showHelpMenu),
@@ -384,6 +412,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
+  Widget _buildLogoMark() {
+    return SpikeyLogoMark(id: _logoChoice, size: 22);
+  }
+
   Widget _buildModeContent(AppMode mode, dynamic activeProject) {
     switch (mode) {
       case AppMode.explorer:
@@ -528,6 +560,10 @@ class _AppShellState extends ConsumerState<AppShell> {
             MaterialPageRoute(builder: (_) => const DocumentationScreen()),
           ),
           child: const Text('Documentation'),
+        ),
+        PopupMenuItem(
+          onTap: () => setState(() => _showLogoPicker = true),
+          child: const Text('Change Logo'),
         ),
         PopupMenuItem(
           onTap: () async {

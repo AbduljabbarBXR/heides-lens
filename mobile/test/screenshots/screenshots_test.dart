@@ -142,7 +142,10 @@ Future<void> _pumpApp(WidgetTester tester, ProviderContainer container, {bool si
 
 void main() {
   setUp(() async {
-    SharedPreferences.setMockInitialValues({'onboarding_completed': true});
+    SharedPreferences.setMockInitialValues({
+      'onboarding_completed': true,
+      'logo_choice': 1,
+    });
   });
 
   testWidgets('01 - welcome', (tester) async {
