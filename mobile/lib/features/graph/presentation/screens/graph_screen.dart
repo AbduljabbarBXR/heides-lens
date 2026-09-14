@@ -55,6 +55,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
   bool _initialFitDone = false;
   bool _isGridView = false;
   bool _isPanning = false;
+  Map<String, Rect> _moduleBands = {};
 
   @override
   void dispose() {
@@ -292,16 +293,8 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                     final visibleEdges = edges.where((e) =>
                         visiblePaths.contains(e['from']) && visiblePaths.contains(e['to'])).toList();
 
-                    // Initialize positions: module bands when in Modules facet, else layered
-                    if (_nodePositions.isEmpty) {
-                      if (_facet == GraphFacet.modules) {
-                        _initializeModulePositions(visibleFiles, projectPath);
-                      } else {
-                        _initializePositions(visibleFiles, visibleEdges);
-                      }
-                    }
-
-                    // Calculate canvas size
+                    // Calculate canvas size (positions are initialized inside
+                    // the LayoutBuilder where the viewport is known)
                     double maxX = 0, maxY = 0;
                     for (final pos in _nodePositions.values) {
                       if (pos.dx > maxX) maxX = pos.dx;
@@ -309,14 +302,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                     }
                     final canvasWidth = maxX + 300;
                     final canvasHeight = maxY + 200;
-
-                    // Auto-fit on first load
-                    if (!_initialFitDone && _nodePositions.isNotEmpty) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _fitToView();
-                        _initialFitDone = true;
-                      });
-                    }
 
                     // Grid view
                     if (_isGridView) {
@@ -337,6 +322,22 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                     return LayoutBuilder(
                       builder: (context, constraints) {
                         final viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
+                        // Initialize positions with the real viewport so the
+                        // layout fills the screen (or overflows only if huge)
+                        if (_nodePositions.isEmpty) {
+                          if (_facet == GraphFacet.modules) {
+                            _initializeModulePositions(visibleFiles, projectPath, viewportSize);
+                          } else {
+                            _initializePositions(visibleFiles, visibleEdges, viewportSize);
+                          }
+                          // Start readable at >=60% zoom
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted && !_initialFitDone) {
+                              _fitToView(initial: true);
+                              _initialFitDone = true;
+                            }
+                          });
+                        }
                         return Stack(
                       children: [
                         // Graph canvas — InteractiveViewer handles pan/zoom on background
@@ -369,7 +370,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                                   Positioned.fill(
                                     child: CustomPaint(
                                       painter: _ModuleBandPainter(
-                                        bands: _moduleBands(visibleFiles, projectPath),
+                                        bands: _moduleBands,
                                       ),
                                     ),
                                   ),
@@ -490,6 +491,33 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                             visibleFiles: visibleFiles,
                             controller: _transformController,
                             viewportSize: viewportSize,
+                          ),
+                        ),
+                        // Facet summary (top-left, shows what this slice contains)
+                        Positioned(
+                          left: 16,
+                          top: 16,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface.withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.layers_rounded, size: 13, color: AppColors.primary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${_facetLabel(_facet)} — ${visibleFiles.length} files'
+                                  '${_facet == GraphFacet.entryPoints ? " (roots)" : ""}'
+                                  '${_facet == GraphFacet.hubs ? " (most connected)" : ""}'
+                                  '${_facet == GraphFacet.cycles ? " (tightly coupled)" : ""}',
+                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         // Legend (bottom-left corner)
@@ -725,12 +753,10 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     return badges;
   }
 
-  void _initializePositions(List<IndexedFile> files, List<Map<String, dynamic>> edges) {
+  void _initializePositions(List<IndexedFile> files, List<Map<String, dynamic>> edges, Size viewport) {
     // Layered (Sugiyama-style) layout — cards aligned in columns like Supabase
     const nodeWidth = 200.0;
     const nodeHeight = 80.0;
-    const gapX = 80.0;
-    const gapY = 40.0;
 
     // Build dependency adjacency: node -> set of nodes it depends on
     final byPath = {for (final f in files) f.path: f};
@@ -805,13 +831,38 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
       });
     }
 
-    // Assign grid positions: x = column per layer, y = stacked rows
+    // Assign grid positions: x = column per layer, y = stacked rows.
+    // Adaptive: fill the viewport when possible, overflow only when too big.
     final positions = <String, Offset>{};
+    final maxLayerCount = layers.length;
+    final maxNodesInLayer = layers.values.fold(0, (m, l) => l.length > m ? l.length : m);
+
+    var gapX = 80.0;
+    var gapY = 40.0;
+    if (maxLayerCount > 0 && maxNodesInLayer > 0) {
+      const pad = 80.0;
+      final usableW = viewport.width - pad * 2;
+      final usableH = viewport.height - pad * 2;
+      final targetGapX = (usableW - maxLayerCount * nodeWidth) / math.max(1, maxLayerCount - 1);
+      final targetGapY = (usableH - maxNodesInLayer * nodeHeight) / math.max(1, maxNodesInLayer - 1);
+      // Spread to fill when the graph is small; clamp to readable minimums
+      // when it is too big (then it overflows the viewport naturally).
+      gapX = targetGapX.clamp(30.0, 140.0);
+      gapY = targetGapY.clamp(20.0, 60.0);
+    }
+
+    final totalW = maxLayerCount * nodeWidth + (maxLayerCount - 1) * gapX;
+    final tallestH = maxNodesInLayer * nodeHeight + (maxNodesInLayer - 1) * gapY;
+    final startX = math.max(80.0, (viewport.width - totalW) / 2);
+    final startY = math.max(80.0, (viewport.height - tallestH) / 2);
+
     for (final entry in layers.entries) {
       final l = entry.key;
       final nodes = entry.value;
-      final x = 100.0 + l * (nodeWidth + gapX);
-      var y = 100.0;
+      final x = startX + l * (nodeWidth + gapX);
+      // Vertically center each layer's stack so columns are balanced
+      final layerH = nodes.length * nodeHeight + (nodes.length - 1) * gapY;
+      var y = startY + (tallestH - layerH) / 2;
       for (final node in nodes) {
         positions[node] = Offset(x, y);
         y += nodeHeight + gapY;
@@ -822,12 +873,13 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
   }
 
   /// Module-band layout: each module gets its own labeled column band, so the
-  /// view reads as "what each section does" — separated and titled.
+  /// view reads as "what each section does" — separated and titled. Bands
+  /// spread to fill the viewport width; when there are more bands than fit,
+  /// they overflow to the right naturally.
   Map<String, Rect> _initializeModulePositions(
-      List<IndexedFile> files, String projectPath) {
+      List<IndexedFile> files, String projectPath, Size viewport) {
     const nodeWidth = 200.0;
     const nodeHeight = 80.0;
-    const gapX = 90.0;
     const gapY = 30.0;
     const bandHeader = 46.0;
     const bandPadding = 24.0;
@@ -835,6 +887,14 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     final groups = _groupByModule(files, projectPath);
     final positions = <String, Offset>{};
     final bands = <String, Rect>{};
+
+    // Adaptive: compute a band pitch that fills the viewport when there are
+    // few modules, clamped to a readable minimum when there are many.
+    final bandWidth = nodeWidth + bandPadding * 2 + 20;
+    final targetPitch = groups.length > 1
+        ? (viewport.width - bandPadding * 2) / groups.length
+        : bandWidth + 60;
+    final pitch = math.max(targetPitch, bandWidth).clamp(bandWidth, 320.0);
 
     var x = 60.0;
     for (final entry in groups.entries) {
@@ -848,32 +908,12 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
         y += nodeHeight + gapY;
       }
       final bandHeight = y + bandPadding - bandHeader;
-      bands[module] = Rect.fromLTWH(x - bandPadding, 0, nodeWidth + gapX, bandHeight);
-      x += nodeWidth + gapX + gapX + 20;
+      bands[module] = Rect.fromLTWH(x - bandPadding, 0, nodeWidth + bandPadding * 2 + 20, bandHeight);
+      x += pitch;
     }
 
     _nodePositions.addAll(positions);
-    return bands;
-  }
-
-  /// Compute module band rects for the given file set (for the painter).
-  Map<String, Rect> _moduleBands(List<IndexedFile> files, String projectPath) {
-    if (_facet != GraphFacet.modules) return {};
-    const nodeWidth = 200.0;
-    const gapX = 90.0;
-    const bandHeader = 46.0;
-    const bandPadding = 24.0;
-
-    final groups = _groupByModule(files, projectPath);
-    final bands = <String, Rect>{};
-    var x = 60.0;
-    for (final entry in groups.entries) {
-      final module = entry.key;
-      final nodes = entry.value;
-      final height = bandHeader + bandPadding * 2 + nodes.length * (80.0 + 30.0);
-      bands[module] = Rect.fromLTWH(x - bandPadding, 0, nodeWidth + gapX, height);
-      x += nodeWidth + gapX + gapX + 20;
-    }
+    _moduleBands = bands;
     return bands;
   }
 
@@ -920,7 +960,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
       ..scale(fitScale);
   }
 
-  void _fitToView() {
+  void _fitToView({bool initial = false}) {
     if (_nodePositions.isEmpty) return;
     double minX = double.infinity, minY = double.infinity;
     double maxX = 0, maxY = 0;
@@ -946,7 +986,18 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     // Calculate scale to fit
     final scaleX = (viewportWidth - padding * 2) / contentWidth;
     final scaleY = (viewportHeight - padding * 2) / contentHeight;
-    final fitScale = math.min(scaleX, scaleY).clamp(0.1, 2.0);
+    var fitScale = math.min(scaleX, scaleY);
+
+    if (initial) {
+      // Start readable: fit the screen when the graph is small, but never
+      // shrink below 60% for big graphs — the graph then overflows the
+      // viewport naturally and the user pans/minimap explores it. Never
+      // blow up small graphs beyond 100%.
+      fitScale = fitScale.clamp(0.6, 1.0);
+    } else {
+      // Fit-to-view button: always show everything.
+      fitScale = fitScale.clamp(0.1, 2.0);
+    }
 
     // Center the content
     final centerX = (minX + maxX) / 2;
@@ -963,6 +1014,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     _transformController.value = Matrix4.identity();
     setState(() {
       _nodePositions.clear();
+      _moduleBands = {};
       _selectedNode = null;
       _hoveredNode = null;
       _initialFitDone = false;
