@@ -87,7 +87,8 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
   @override
   Widget build(BuildContext context) {
     final projectState = ref.watch(projectProvider);
-    final filesAsync = ref.watch(indexedFilesProvider);
+    final projectPath = projectState.activeProject?.path ?? '';
+    final filesAsync = ref.watch(indexedFilesProvider(projectPath));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -109,10 +110,9 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                     const SizedBox(width: 12),
                     Text('Neural Graph', style: AppTextStyles.h3),
                     const Spacer(),
-                    // Node/edge count
+                    // Node count
                     filesAsync.when(
                       data: (files) {
-                        final edgeCount = files.length > 1 ? files.length - 1 : 0;
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
@@ -120,7 +120,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: AppColors.border),
                           ),
-                          child: Text('${files.length} nodes • $edgeCount edges',
+                          child: Text('${files.length} files',
                               style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                         );
                       },
@@ -343,6 +343,15 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                         // Graph canvas — InteractiveViewer handles pan/zoom on background
                         RepaintBoundary(
                           child: GestureDetector(
+                            // Click on empty background clears the selection
+                            onTap: () {
+                              if (_selectedNode != null || _hoveredNode != null) {
+                                setState(() {
+                                  _selectedNode = null;
+                                  _hoveredNode = null;
+                                });
+                              }
+                            },
                             // Double-click to zoom in at the cursor
                             onDoubleTapDown: (details) =>
                                 _zoomAtPoint(details.localPosition, 1.5),
@@ -413,7 +422,8 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                                       allFiles: visibleFiles,
                                       projectPath: projectState.activeProject?.path ?? '',
                                       onSelect: () => setState(() {
-                                        _selectedNode = _selectedNode == file.path ? null : file.path;
+                                        _selectedNode = file.path;
+                                        _hoveredNode = null;
                                       }),
                                       onHover: (hovering) {
                                         if (_isPanning) return;
@@ -425,7 +435,10 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                                       },
                                       onDragUpdate: (globalPos) {
                                         if (_dragStart != null && _draggingPath == file.path) {
-                                          final delta = globalPos - _dragStart!;
+                                          // Screen delta → canvas delta: divide by zoom
+                                          // (translation cancels out in a delta).
+                                          final scale = _transformController.value.getMaxScaleOnAxis();
+                                          final delta = (globalPos - _dragStart!) / scale;
                                           final currentPos = _nodePositions[file.path] ?? Offset.zero;
                                           setState(() {
                                             _nodePositions[file.path] = Offset(currentPos.dx + delta.dx, currentPos.dy + delta.dy);
@@ -510,7 +523,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                                 Icon(Icons.layers_rounded, size: 13, color: AppColors.primary),
                                 const SizedBox(width: 6),
                                 Text(
-                                  '${_facetLabel(_facet)} — ${visibleFiles.length} files'
+                                  '${_facetLabel(_facet)} — ${visibleFiles.length} files • ${visibleEdges.length} edges'
                                   '${_facet == GraphFacet.entryPoints ? " (roots)" : ""}'
                                   '${_facet == GraphFacet.hubs ? " (most connected)" : ""}'
                                   '${_facet == GraphFacet.cycles ? " (tightly coupled)" : ""}',
@@ -565,7 +578,8 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                     projectState.activeProject!.path,
                     onProgress: (current, total) => setState(() => _indexProgress = current / total),
                   );
-                  ref.invalidate(indexedFilesProvider);
+                  ref.invalidate(indexedFilesProvider(projectState.activeProject!.path));
+                  ref.invalidate(graphDataProvider(projectState.activeProject!.path));
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -831,41 +845,58 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
       });
     }
 
-    // Assign grid positions: x = column per layer, y = stacked rows.
-    // Adaptive: fill the viewport when possible, overflow only when too big.
+    // Assign positions with column wrapping: no column is taller than
+    // _maxColumnNodes, so the graph stays compact (Supabase-style) instead of
+    // one enormous vertical stack. Wrapped sub-columns share a layer.
+    const maxColumnNodes = 6;
     final positions = <String, Offset>{};
-    final maxLayerCount = layers.length;
-    final maxNodesInLayer = layers.values.fold(0, (m, l) => l.length > m ? l.length : m);
+
+    // Flatten wrapped columns: layer -> list of column-groups
+    final columns = <int, List<List<String>>>{};
+    for (final entry in layers.entries) {
+      final nodes = entry.value;
+      final wrapped = <List<String>>[];
+      for (var i = 0; i < nodes.length; i += maxColumnNodes) {
+        wrapped.add(nodes.sublist(i, math.min(i + maxColumnNodes, nodes.length)));
+      }
+      columns[entry.key] = wrapped;
+    }
+
+    final totalColumns = columns.values.fold(0, (sum, cols) => sum + cols.length);
+    final maxColumnHeight = columns.values
+        .expand((cols) => cols)
+        .fold(0, (m, col) => col.length > m ? col.length : m);
 
     var gapX = 80.0;
     var gapY = 40.0;
-    if (maxLayerCount > 0 && maxNodesInLayer > 0) {
+    if (totalColumns > 0 && maxColumnHeight > 0) {
       const pad = 80.0;
       final usableW = viewport.width - pad * 2;
       final usableH = viewport.height - pad * 2;
-      final targetGapX = (usableW - maxLayerCount * nodeWidth) / math.max(1, maxLayerCount - 1);
-      final targetGapY = (usableH - maxNodesInLayer * nodeHeight) / math.max(1, maxNodesInLayer - 1);
+      final targetGapX = (usableW - totalColumns * nodeWidth) / math.max(1, totalColumns - 1);
+      final targetGapY = (usableH - maxColumnHeight * nodeHeight) / math.max(1, maxColumnHeight - 1);
       // Spread to fill when the graph is small; clamp to readable minimums
       // when it is too big (then it overflows the viewport naturally).
       gapX = targetGapX.clamp(30.0, 140.0);
       gapY = targetGapY.clamp(20.0, 60.0);
     }
 
-    final totalW = maxLayerCount * nodeWidth + (maxLayerCount - 1) * gapX;
-    final tallestH = maxNodesInLayer * nodeHeight + (maxNodesInLayer - 1) * gapY;
+    final totalW = totalColumns * nodeWidth + (totalColumns - 1) * gapX;
+    final tallestH = maxColumnHeight * nodeHeight + (maxColumnHeight - 1) * gapY;
     final startX = math.max(80.0, (viewport.width - totalW) / 2);
     final startY = math.max(80.0, (viewport.height - tallestH) / 2);
 
-    for (final entry in layers.entries) {
-      final l = entry.key;
-      final nodes = entry.value;
-      final x = startX + l * (nodeWidth + gapX);
-      // Vertically center each layer's stack so columns are balanced
-      final layerH = nodes.length * nodeHeight + (nodes.length - 1) * gapY;
-      var y = startY + (tallestH - layerH) / 2;
-      for (final node in nodes) {
-        positions[node] = Offset(x, y);
-        y += nodeHeight + gapY;
+    var colIndex = 0;
+    for (final entry in columns.entries) {
+      for (final column in entry.value) {
+        final x = startX + colIndex * (nodeWidth + gapX);
+        final layerH = column.length * nodeHeight + (column.length - 1) * gapY;
+        var y = startY + (tallestH - layerH) / 2;
+        for (final node in column) {
+          positions[node] = Offset(x, y);
+          y += nodeHeight + gapY;
+        }
+        colIndex++;
       }
     }
 

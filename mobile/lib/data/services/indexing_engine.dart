@@ -22,11 +22,12 @@ class IndexDatabase {
     final path = p.join(dir.path, 'spikey_index.db');
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_path TEXT,
             path TEXT UNIQUE,
             hash TEXT,
             language TEXT,
@@ -93,6 +94,10 @@ class IndexDatabase {
             )
           ''');
         }
+        if (oldVersion < 3) {
+          // Add project scoping so files from different projects never mix.
+          await db.execute('ALTER TABLE files ADD COLUMN project_path TEXT');
+        }
       },
     );
   }
@@ -131,9 +136,24 @@ class IndexDatabase {
     return await db.insert('calls', call);
   }
 
-  Future<List<Map<String, dynamic>>> getFiles() async {
+  Future<List<Map<String, dynamic>>> getFiles({String? projectPath}) async {
     final db = await this.db;
+    if (projectPath != null) {
+      return await db.query('files', where: 'project_path = ?', whereArgs: [projectPath], orderBy: 'path');
+    }
     return await db.query('files', orderBy: 'path');
+  }
+
+  Future<Map<String, dynamic>?> getFileByPath(String path, {String? projectPath}) async {
+    final db = await this.db;
+    final List<Map<String, dynamic>> results;
+    if (projectPath != null) {
+      results = await db.query('files',
+          where: 'path = ? AND project_path = ?', whereArgs: [path, projectPath], limit: 1);
+    } else {
+      results = await db.query('files', where: 'path = ?', whereArgs: [path], limit: 1);
+    }
+    return results.isNotEmpty ? results.first : null;
   }
 
   Future<List<Map<String, dynamic>>> getFindingsByFile(int fileId) async {
@@ -149,12 +169,6 @@ class IndexDatabase {
   Future<List<Map<String, dynamic>>> getCallsByFile(int fileId) async {
     final db = await this.db;
     return await db.query('calls', where: 'file_id = ?', whereArgs: [fileId]);
-  }
-
-  Future<Map<String, dynamic>?> getFileByPath(String path) async {
-    final db = await this.db;
-    final results = await db.query('files', where: 'path = ?', whereArgs: [path], limit: 1);
-    return results.isNotEmpty ? results.first : null;
   }
 
   Future<int> updateFileHash(int fileId, String hash) async {
@@ -343,7 +357,7 @@ class IndexingEngine {
       final content = await File(filePath).readAsString();
       final hash = await FileScanner.computeHash(filePath);
       final relPath = p.relative(filePath, from: projectPath);
-      final existing = await db.getFileByPath(relPath);
+      final existing = await db.getFileByPath(relPath, projectPath: projectPath);
 
       if (existing != null && existing['hash'] == hash && existing['last_indexed'] != null) {
         await db.updateFileHash(existing['id'] as int, hash);
@@ -354,6 +368,7 @@ class IndexingEngine {
       final fileId = existing != null
           ? await db.updateFileHash(existing['id'] as int, hash)
           : await db.insertFile({
+              'project_path': projectPath,
               'path': relPath,
               'hash': hash,
               'language': analysis['language'] as String,
@@ -416,7 +431,7 @@ class IndexingEngine {
   }
 
   Future<void> _removeDeletedFiles(String projectPath, List<String> currentFiles) async {
-    final allFiles = await db.getFiles();
+    final allFiles = await db.getFiles(projectPath: projectPath);
     for (final file in allFiles) {
       final relPath = file['path'] as String;
       final normalizedDbPath = p.separator == '/' ? relPath : relPath.replaceAll('/', p.separator);
@@ -427,8 +442,8 @@ class IndexingEngine {
     }
   }
 
-  Future<List<IndexedFile>> getIndexedFiles() async {
-    final rows = await db.getFiles();
+  Future<List<IndexedFile>> getIndexedFiles({String? projectPath}) async {
+    final rows = await db.getFiles(projectPath: projectPath);
     return rows.map((row) => IndexedFile(
           id: row['id'] as int,
           path: row['path'] as String,
@@ -439,8 +454,8 @@ class IndexingEngine {
         )).toList();
   }
 
-  Future<Map<String, dynamic>> getDependencies(String filePath) async {
-    final file = await db.getFileByPath(filePath);
+  Future<Map<String, dynamic>> getDependencies(String filePath, {String? projectPath}) async {
+    final file = await db.getFileByPath(filePath, projectPath: projectPath);
     if (file == null) return {'imports': [], 'calls': []};
 
     final imports = await db.getImportsByFile(file['id'] as int);

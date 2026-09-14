@@ -23,7 +23,7 @@ class ProjectContext {
     buffer.writeln();
 
     // 2. Indexed files summary
-    final indexedFiles = await engine.getIndexedFiles();
+    final indexedFiles = await engine.getIndexedFiles(projectPath: projectPath);
     if (indexedFiles.isNotEmpty) {
       buffer.writeln('--- INDEXED FILES (${indexedFiles.length}) ---');
       for (final file in indexedFiles.take(50)) {
@@ -37,7 +37,7 @@ class ProjectContext {
     final depCount = <String, int>{};
     for (final file in indexedFiles.take(30)) {
       try {
-        final deps = await engine.getDependencies(file.path);
+        final deps = await engine.getDependencies(file.path, projectPath: projectPath);
         final imports = deps['imports'] as List<Map<String, dynamic>>;
         for (final imp in imports) {
           final module = imp['to_module'] as String;
@@ -86,7 +86,7 @@ class ProjectContext {
     }
 
     // 6. Findings/Issues
-    final findings = await _getFindings(engine);
+    final findings = await _getFindings(engine, projectPath);
     if (findings.isNotEmpty) {
       buffer.writeln('--- FINDINGS (${findings.length}) ---');
       for (final finding in findings.take(20)) {
@@ -174,9 +174,9 @@ class ProjectContext {
     }
   }
 
-  static Future<List<Map<String, dynamic>>> _getFindings(IndexingEngine engine) async {
+  static Future<List<Map<String, dynamic>>> _getFindings(IndexingEngine engine, String projectPath) async {
     try {
-      final files = await engine.getIndexedFiles();
+      final files = await engine.getIndexedFiles(projectPath: projectPath);
       final db = await engine.db.db;
       final findings = <Map<String, dynamic>>[];
 

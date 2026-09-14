@@ -22,10 +22,10 @@ const String projectPath = '/home/centinos/Spikey/mobile/lib';
 
 class FakeEngine extends IndexingEngine {
   @override
-  Future<List<IndexedFile>> getIndexedFiles() async => _sampleFiles();
+  Future<List<IndexedFile>> getIndexedFiles({String? projectPath}) async => _sampleFiles();
 
   @override
-  Future<Map<String, dynamic>> getDependencies(String filePath) async {
+  Future<Map<String, dynamic>> getDependencies(String filePath, {String? projectPath}) async {
     return {'imports': [], 'calls': []};
   }
 }
@@ -114,7 +114,7 @@ Future<ProviderContainer> _buildContainer() async {
   final fakeEngine = FakeEngine();
   final container = ProviderContainer(overrides: [
     indexingEngineProvider.overrideWithValue(fakeEngine),
-    indexedFilesProvider.overrideWith((ref) async => files),
+    indexedFilesProvider.overrideWith((ref, path) async => files),
     graphDataProvider.overrideWith((ref, path) async => {'files': files, 'edges': _sampleEdges()}),
     findingsProvider.overrideWith((ref, path) async => _sampleFindings()),
     // HEIDES is not exercised in screenshots

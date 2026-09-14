@@ -93,7 +93,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   void _preloadData(String projectPath) {
     // Kick off the futures; providers cache the results.
     try {
-      ref.read(indexedFilesProvider.future);
+      ref.read(indexedFilesProvider(projectPath).future);
     } catch (_) {}
     try {
       ref.read(graphDataProvider(projectPath).future);
@@ -623,7 +623,8 @@ class _AppShellState extends ConsumerState<AppShell> {
         projects: projectState.projects,
         onSelectProject: (project) {
           ref.read(projectProvider.notifier).setActiveProject(project);
-          ref.invalidate(indexedFilesProvider);
+          ref.invalidate(indexedFilesProvider(project.path));
+          ref.invalidate(graphDataProvider(project.path));
           Navigator.pop(context, project.path);
           // Preload graph + review data in the background
           _preloadData(project.path);

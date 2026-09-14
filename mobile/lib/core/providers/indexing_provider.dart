@@ -6,21 +6,23 @@ final indexingEngineProvider = Provider<IndexingEngine>((ref) {
   return IndexingEngine();
 });
 
-final indexedFilesProvider = FutureProvider<List<IndexedFile>>((ref) async {
+/// Indexed files scoped to the active project. Family key = project path.
+final indexedFilesProvider =
+    FutureProvider.family<List<IndexedFile>, String>((ref, projectPath) async {
   final engine = ref.watch(indexingEngineProvider);
-  return await engine.getIndexedFiles();
+  return await engine.getIndexedFiles(projectPath: projectPath);
 });
 
 /// Precomputed graph edges — shared by the graph screen and background preload
-/// so opening the graph after a project loads is instant.
+/// so opening the graph after a project loads is instant. Scoped to project.
 final graphDataProvider =
     FutureProvider.family<Map<String, dynamic>, String>((ref, projectPath) async {
   final engine = ref.watch(indexingEngineProvider);
-  final files = await ref.watch(indexedFilesProvider.future);
+  final files = await ref.watch(indexedFilesProvider(projectPath).future);
   final edges = <Map<String, dynamic>>[];
 
   for (final file in files) {
-    final deps = await engine.getDependencies(file.path);
+    final deps = await engine.getDependencies(file.path, projectPath: projectPath);
     for (final imp in deps['imports'] as List<Map<String, dynamic>>) {
       final module = imp['to_module'] as String;
       final target = files.firstWhereOrNull((f) {

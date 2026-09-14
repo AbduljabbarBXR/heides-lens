@@ -11,7 +11,7 @@ final findingsProvider = FutureProvider.family<List<Map<String, dynamic>>, Strin
     SELECT findings.*, files.path
     FROM findings
     JOIN files ON findings.file_id = files.id
-    WHERE files.path LIKE ?
+    WHERE files.project_path = ?
     ORDER BY
       CASE findings.severity
         WHEN 'critical' THEN 0
@@ -20,7 +20,7 @@ final findingsProvider = FutureProvider.family<List<Map<String, dynamic>>, Strin
       END,
       files.path,
       findings.line
-  ''', ['$projectPath%']);
+  ''', [projectPath]);
 
   return rows.map((finding) {
     return {

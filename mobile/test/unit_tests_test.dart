@@ -153,7 +153,7 @@ void main() {
   group('GraphScreen Widget Tests', () {
     testWidgets('GraphScreen shows header', (tester) async {
       final overrides = <Override>[
-        indexedFilesProvider.overrideWith((ref) => Future.value([])),
+        indexedFilesProvider.overrideWith((ref, path) => Future.value([])),
       ];
       
       await tester.pumpWidget(
