@@ -129,12 +129,17 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
                       error: (_, __) => const Icon(Icons.error_rounded, size: 16, color: AppColors.error),
                     ),
-                    const SizedBox(width: 12),
-                    _ControlButton(
-                      icon: Icons.refresh_rounded,
-                      tooltip: 'Reset Layout',
-                      onTap: _resetLayout,
-                    ),
+                     const SizedBox(width: 12),
+                     _ControlButton(
+                       icon: Icons.zoom_out_map_rounded,
+                       tooltip: 'Spread Layout',
+                       onTap: _spreadLayout,
+                     ),
+                     _ControlButton(
+                       icon: Icons.refresh_rounded,
+                       tooltip: 'Reset Layout',
+                       onTap: _resetLayout,
+                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -772,8 +777,8 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
 
   void _initializePositions(List<IndexedFile> files, List<Map<String, dynamic>> edges, Size viewport) {
     // Layered (Sugiyama-style) layout — cards aligned in columns like Supabase
-    const nodeWidth = 200.0;
-    const nodeHeight = 80.0;
+    const nodeWidth = 220.0;
+    const nodeHeight = 100.0;
 
     // Build dependency adjacency: node -> set of nodes it depends on
     final byPath = {for (final f in files) f.path: f};
@@ -851,7 +856,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     // Assign positions with column wrapping: no column is taller than
     // _maxColumnNodes, so the graph stays compact (Supabase-style) instead of
     // one enormous vertical stack. Wrapped sub-columns share a layer.
-    const maxColumnNodes = 6;
+    const maxColumnNodes = 5;
     final positions = <String, Offset>{};
 
     // Flatten wrapped columns: layer -> list of column-groups
@@ -871,23 +876,23 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
         .fold(0, (m, col) => col.length > m ? col.length : m);
 
     var gapX = 80.0;
-    var gapY = 40.0;
+    var gapY = 50.0;
     if (totalColumns > 0 && maxColumnHeight > 0) {
-      const pad = 80.0;
+      const pad = 100.0;
       final usableW = viewport.width - pad * 2;
       final usableH = viewport.height - pad * 2;
       final targetGapX = (usableW - totalColumns * nodeWidth) / math.max(1, totalColumns - 1);
       final targetGapY = (usableH - maxColumnHeight * nodeHeight) / math.max(1, maxColumnHeight - 1);
       // Spread to fill when the graph is small; clamp to readable minimums
       // when it is too big (then it overflows the viewport naturally).
-      gapX = targetGapX.clamp(30.0, 140.0);
-      gapY = targetGapY.clamp(20.0, 60.0);
+      gapX = targetGapX.clamp(50.0, 160.0);
+      gapY = targetGapY.clamp(40.0, 80.0);
     }
 
     final totalW = totalColumns * nodeWidth + (totalColumns - 1) * gapX;
     final tallestH = maxColumnHeight * nodeHeight + (maxColumnHeight - 1) * gapY;
-    final startX = math.max(80.0, (viewport.width - totalW) / 2);
-    final startY = math.max(80.0, (viewport.height - tallestH) / 2);
+    final startX = math.max(100.0, (viewport.width - totalW) / 2);
+    final startY = math.max(100.0, (viewport.height - tallestH) / 2);
 
     var colIndex = 0;
     for (final entry in columns.entries) {
@@ -912,11 +917,11 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
   /// they overflow to the right naturally.
   Map<String, Rect> _initializeModulePositions(
       List<IndexedFile> files, String projectPath, Size viewport) {
-    const nodeWidth = 200.0;
-    const nodeHeight = 80.0;
-    const gapY = 30.0;
+    const nodeWidth = 220.0;
+    const nodeHeight = 100.0;
+    const gapY = 50.0;
     const bandHeader = 46.0;
-    const bandPadding = 24.0;
+    const bandPadding = 32.0;
 
     final groups = _groupByModule(files, projectPath);
     final positions = <String, Offset>{};
@@ -927,10 +932,10 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     final bandWidth = nodeWidth + bandPadding * 2 + 20;
     final targetPitch = groups.length > 1
         ? (viewport.width - bandPadding * 2) / groups.length
-        : bandWidth + 60;
-    final pitch = math.max(targetPitch, bandWidth).clamp(bandWidth, 320.0);
+        : bandWidth + 80;
+    final pitch = math.max(targetPitch, bandWidth).clamp(bandWidth, 360.0);
 
-    var x = 60.0;
+    var x = 80.0;
     for (final entry in groups.entries) {
       final module = entry.key;
       final nodes = entry.value;
@@ -977,9 +982,9 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     final viewport = _viewerKey.currentContext?.size;
     if (viewport == null) return;
 
-    const padding = 120.0;
-    final contentWidth = maxX - minX + 400;
-    final contentHeight = maxY - minY + 150;
+    const padding = 140.0;
+    final contentWidth = maxX - minX + 440;
+    final contentHeight = maxY - minY + 180;
     final scaleX = (viewport.width - padding * 2) / contentWidth;
     final scaleY = (viewport.height - padding * 2) / contentHeight;
     final fitScale = math.min(scaleX, scaleY).clamp(0.3, 2.0);
@@ -1006,9 +1011,9 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     }
 
     // Calculate the bounding box with padding
-    final padding = 80.0;
-    final contentWidth = maxX - minX + 400; // node width
-    final contentHeight = maxY - minY + 150; // node height
+    final padding = 100.0;
+    final contentWidth = maxX - minX + 440; // node width
+    final contentHeight = maxY - minY + 180; // node height
 
     // Get viewport size from the actual viewer (not the full screen)
     final viewport = _viewerKey.currentContext?.size ?? context.size;
@@ -1054,6 +1059,18 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
       _initialFitDone = false;
     });
   }
+
+  void _spreadLayout() {
+    if (_nodePositions.isEmpty) return;
+    setState(() {
+      final center = _nodePositions.values.fold(Offset.zero, (sum, p) => sum + p) / _nodePositions.length.toDouble();
+      for (final entry in _nodePositions.entries) {
+        final current = entry.value;
+        final delta = current - center;
+        _nodePositions[entry.key] = Offset(current.dx + delta.dx * 0.5, current.dy + delta.dy * 0.5);
+      }
+    });
+  }
 }
 
 // ==================== NODE WIDGET ====================
@@ -1096,6 +1113,10 @@ class _GraphNode extends StatefulWidget {
 }
 
 class _GraphNodeState extends State<_GraphNode> {
+  bool _isDragging = false;
+  Offset? _localDragStart;
+  Offset? _globalDragStart;
+
   @override
   Widget build(BuildContext context) {
     final fileName = p.basename(widget.file.path);
@@ -1112,42 +1133,76 @@ class _GraphNodeState extends State<_GraphNode> {
 
     return MouseRegion(
       onEnter: (_) => widget.onHover(true),
-      onExit: (_) => widget.onHover(false),
-      cursor: SystemMouseCursors.click,
+      onExit: (_) {
+        if (!_isDragging) widget.onHover(false);
+      },
+      cursor: _isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: widget.onSelect,
-        onPanStart: (d) => widget.onDragStart(d.globalPosition),
-        onPanUpdate: (d) => widget.onDragUpdate(d.globalPosition),
-        onPanEnd: (_) => widget.onDragEnd(),
+        behavior: HitTestBehavior.opaque,
+        onTap: _isDragging ? null : widget.onSelect,
+        onPanStart: (details) {
+          _isDragging = false;
+          _localDragStart = details.localPosition;
+          _globalDragStart = details.globalPosition;
+          widget.onDragStart(details.globalPosition);
+        },
+        onPanUpdate: (details) {
+          if (_localDragStart == null || _globalDragStart == null) return;
+          final totalDelta = details.globalPosition - _globalDragStart!;
+          if (!_isDragging && totalDelta.distance > 3.0) {
+            _isDragging = true;
+            widget.onHover(true);
+          }
+          if (_isDragging) {
+            widget.onDragUpdate(details.globalPosition);
+          }
+        },
+        onPanEnd: (_) {
+          if (!_isDragging && _localDragStart != null) {
+            // It was a tap, not a drag
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) widget.onSelect();
+            });
+          }
+          widget.onDragEnd();
+          _isDragging = false;
+          _localDragStart = null;
+          _globalDragStart = null;
+          widget.onHover(false);
+        },
         child: AnimatedOpacity(
           duration: const Duration(milliseconds: 200),
-          opacity: widget.isDimmed ? 0.2 : 1.0,
+          opacity: widget.isDimmed ? 0.15 : 1.0,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: 200,
+            width: 220,
             decoration: BoxDecoration(
               color: widget.isSelected
-                  ? widget.color.withValues(alpha: 0.15)
+                  ? widget.color.withValues(alpha: 0.12)
                   : widget.isHovered
                       ? AppColors.surfaceHover
                       : AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: widget.isSelected
                     ? widget.color
                     : widget.isHovered
                         ? widget.color.withValues(alpha: 0.5)
                         : AppColors.border,
-                width: widget.isSelected ? 2 : 1,
+                width: widget.isSelected ? 2.5 : 1,
               ),
               boxShadow: [
+                if (widget.isSelected)
+                  BoxShadow(
+                    color: widget.color.withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
                 BoxShadow(
-                  color: widget.isSelected
-                      ? widget.color.withValues(alpha: 0.3)
-                      : widget.isHovered
-                          ? widget.color.withValues(alpha: 0.15)
-                          : Colors.black.withValues(alpha: 0.1),
-                  blurRadius: widget.isSelected ? 12 : 8,
+                  color: widget.isHovered
+                      ? widget.color.withValues(alpha: 0.15)
+                      : Colors.black.withValues(alpha: 0.08),
+                  blurRadius: widget.isSelected ? 16 : 10,
                   offset: const Offset(0, 2),
                 ),
               ],
@@ -1160,8 +1215,8 @@ class _GraphNodeState extends State<_GraphNode> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: widget.color.withValues(alpha: 0.1),
-                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
+                    color: widget.color.withValues(alpha: 0.08),
+                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
                   ),
                   child: Row(
                     children: [
@@ -1207,7 +1262,7 @@ class _GraphNodeState extends State<_GraphNode> {
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: connectedFiles.take(3).map((name) {
+                      children: connectedFiles.take(5).map((name) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 2),
                           child: Row(
@@ -1238,8 +1293,8 @@ class _GraphEdgePainter extends CustomPainter {
   final String? selectedNode;
   final String? hoveredNode;
 
-  static const double nodeWidth = 200.0;
-  static const double nodeHeight = 80.0;
+  static const double nodeWidth = 220.0;
+  static const double nodeHeight = 100.0;
 
   _GraphEdgePainter({
     required this.edges,
