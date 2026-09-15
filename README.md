@@ -23,6 +23,7 @@ It is not another coding assistant. It is the brain your codebase never had — 
 - [Hook Reference](docs/hook-reference.md) — every hook and its arguments
 - [Security](docs/security.md) — threat model and hardening notes
 - [Architecture](ARCHITECTURE.md) — full design document
+- [Release & Distribution](docs/RELEASE.md) — what's left: npm, MCP registry, Linux/Windows/macOS packaging
 
 The app ships with an in-app documentation viewer: **Help → Documentation**.
 
