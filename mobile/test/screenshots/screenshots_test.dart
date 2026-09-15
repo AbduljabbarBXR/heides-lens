@@ -197,20 +197,26 @@ void main() {
     await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/graph.png'));
   });
 
-  testWidgets('05b - graph renders cards; background tap does not select', (tester) async {
+  testWidgets('05b - background tap deselects a selected card', (tester) async {
     final container = await _buildContainer();
     await _pumpApp(tester, container);
     container.read(navigationProvider.notifier).setMode(AppMode.graph);
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
 
-    // Cards render (file names visible in the mesh)
-    expect(find.text('main.dart'), findsWidgets);
+    // Select a card by tapping it (finder hits the card's GestureDetector)
+    final card = find.byType(GestureDetector).first;
+    await tester.tap(card);
+    await tester.pumpAndSettle(const Duration(milliseconds: 600));
 
-    // Tap a clearly-empty area (top-left) — must not throw and must not select
-    await tester.tapAt(const Offset(15, 200));
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('Focus on selection'), findsNothing,
-        reason: 'background tap must not leave a selection');
+    // The info panel should now show node details (selection worked)
+    expect(find.text('Edge Types'), findsOneWidget);
+
+    // Tap empty background → selection clears
+    await tester.tapAt(const Offset(30, 250));
+    await tester.pumpAndSettle(const Duration(milliseconds: 600));
+    // After deselect, the panel shows the hint text instead of node details
+    expect(find.textContaining('Hover or click'), findsOneWidget,
+        reason: 'background tap must deselect the card');
   });
 
   testWidgets('05c - info panel is present with edge legend', (tester) async {

@@ -53,7 +53,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
   String? _draggingPath;
   final TransformationController _transformController = TransformationController();
   final GlobalKey _viewerKey = GlobalKey();
-  bool _initialFitDone = false;
   bool _isGridView = false;
   Map<String, Rect> _moduleBands = {};
   DateTime? _lastBackgroundTap;
@@ -111,8 +110,14 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
     if (selectedPos == null) return;
 
     final center = Offset(selectedPos.dx + 110, selectedPos.dy + 40);
-    const radius = 170.0;
     final ring = neighbors.where((n) => n != selectedPath).toList();
+    // Ring radius scales with neighbor count so cards never overlap:
+    // each card is ~220px wide, so the ring must comfortably exceed that.
+    // For few neighbors keep it tight; for many push it wider.
+    const cardWidth = 220.0;
+    final radius = ring.isEmpty
+        ? 0.0
+        : math.max(cardWidth * 0.85, (ring.length * cardWidth) / (2 * math.pi) + 60);
     _clusterTargets[selectedPath] = selectedPos;
 
     for (var i = 0; i < ring.length; i++) {
@@ -317,7 +322,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                             setState(() {
                               _facet = facet;
                               _nodePositions.clear();
-                              _initialFitDone = false;
                             });
                           },
                           backgroundColor: AppColors.surfaceHover,
@@ -417,13 +421,12 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                           } else {
                             _initializePositions(visibleFiles, visibleEdges, viewportSize);
                           }
-                          // Start readable at >=60% zoom
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted && !_initialFitDone) {
-                              _fitToView(initial: true);
-                              _initialFitDone = true;
-                            }
-                          });
+                          // Start readable at >=60% zoom. Applied synchronously
+                          // with the layout size so InteractiveViewer renders
+                          // AND hit-tests with the same transform from frame 1
+                          // (a post-frame set desynced hit-testing until the
+                          // first pan).
+                          _fitToView(initial: true, fitViewport: viewportSize);
                         }
                         return Stack(
                       children: [
@@ -480,23 +483,31 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                                     child: const SizedBox.expand(),
                                   ),
                                 ),
-                                // Module bands (Modules facet only)
+                                // Module bands (Modules facet only) — IgnorePointer so they never
+                                // absorb clicks meant for the Listener below.
                                 if (_facet == GraphFacet.modules)
                                   Positioned.fill(
-                                    child: CustomPaint(
-                                      painter: _ModuleBandPainter(
-                                        bands: _moduleBands,
+                                    child: IgnorePointer(
+                                      child: CustomPaint(
+                                        painter: _ModuleBandPainter(
+                                          bands: _moduleBands,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                // Edges
+                                // Edges — IgnorePointer so empty-canvas clicks
+                                // fall through to the background Listener
+                                // (CustomPaint.hitTestSelf returns true when a
+                                // painter exists, which was blocking deselect).
                                 Positioned.fill(
-                                  child: CustomPaint(
-                                    painter: _GraphEdgePainter(
-                                      edges: visibleEdges,
-                                      nodePositions: _nodePositions,
-                                      selectedNode: _selectedNode,
-                                      hoveredNode: _hoveredNode,
+                                  child: IgnorePointer(
+                                    child: CustomPaint(
+                                      painter: _GraphEdgePainter(
+                                        edges: visibleEdges,
+                                        nodePositions: _nodePositions,
+                                        selectedNode: _selectedNode,
+                                        hoveredNode: _hoveredNode,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1113,7 +1124,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
       ..scale(fitScale);
   }
 
-  void _fitToView({bool initial = false}) {
+  void _fitToView({bool initial = false, Size? fitViewport}) {
     if (_nodePositions.isEmpty) return;
     double minX = double.infinity, minY = double.infinity;
     double maxX = 0, maxY = 0;
@@ -1129,8 +1140,8 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
     final contentWidth = maxX - minX + 440; // node width
     final contentHeight = maxY - minY + 180; // node height
 
-    // Get viewport size from the actual viewer (not the full screen)
-    final viewport = _viewerKey.currentContext?.size ?? context.size;
+    // Get viewport size (caller may pass it synchronously before first layout)
+    final viewport = fitViewport ?? _viewerKey.currentContext?.size ?? context.size;
     if (viewport == null) return;
 
     final viewportWidth = viewport.width;
@@ -1174,7 +1185,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
       _moduleBands = {};
       _selectedNode = null;
       _hoveredNode = null;
-      _initialFitDone = false;
     });
   }
 
