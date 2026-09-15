@@ -335,8 +335,11 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
                     _WindowControlButton(
                       icon: _isMaximized ? Icons.filter_none_rounded : Icons.check_box_outline_blank_rounded,
                       onTap: () async {
+                        // NOTE: window_manager's Linux `restore()` only
+                        // de-iconifies/presents — it never exits maximized.
+                        // `unmaximize()` is the correct un-maximize call.
                         if (_isMaximized) {
-                          await windowManager.restore();
+                          await windowManager.unmaximize();
                         } else {
                           await windowManager.maximize();
                         }
