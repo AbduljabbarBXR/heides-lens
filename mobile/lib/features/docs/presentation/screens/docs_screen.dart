@@ -47,16 +47,6 @@ const List<DocsSection> docsSections = [
     ],
   ),
   DocsSection(
-    title: 'Workflow',
-    subtitle: 'Chat with your codebase',
-    image: 'assets/images/screens/workflow.png',
-    bullets: [
-      'AI assistant with full project context (file tree, dependencies, findings)',
-      'Markdown rendering with syntax-highlighted code blocks',
-      'Works with OpenRouter, OpenAI, Anthropic, Gemini, and Ollama',
-    ],
-  ),
-  DocsSection(
     title: 'Neural Graph',
     subtitle: 'Visualize your architecture',
     image: 'assets/images/screens/graph.png',
@@ -75,16 +65,6 @@ const List<DocsSection> docsSections = [
       'Critical, warning, and info findings from static analysis',
       'Click a finding to preview the exact file and line',
       'Suggestions inline with every finding',
-    ],
-  ),
-  DocsSection(
-    title: 'Settings',
-    subtitle: 'Configure your AI provider',
-    image: 'assets/images/screens/settings.png',
-    bullets: [
-      'Provider selection (OpenRouter, OpenAI, Anthropic, Gemini, Ollama)',
-      'Model dropdown per provider',
-      'API keys stored in secure storage, test connection button',
     ],
   ),
 ];

@@ -130,14 +130,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             )),
             const SizedBox(width: 12),
             Expanded(child: _ActionCard(
-              icon: Icons.chat_rounded,
-              title: 'Query',
-              subtitle: 'Ask the nervous system anything',
-              color: const Color(0xFF10B981),
-              onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.workflow),
-            )),
-            const SizedBox(width: 12),
-            Expanded(child: _ActionCard(
               icon: Icons.verified_rounded,
               title: 'Review',
               subtitle: 'Findings with file:line evidence',

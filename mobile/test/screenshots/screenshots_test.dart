@@ -8,10 +8,8 @@ import 'package:heides_lens/core/providers/heides_provider.dart';
 import 'package:heides_lens/core/providers/indexing_provider.dart';
 import 'package:heides_lens/core/providers/navigation_provider.dart';
 import 'package:heides_lens/core/providers/project_provider.dart';
-import 'package:heides_lens/core/providers/settings_provider.dart';
 import 'package:heides_lens/data/services/indexing_engine.dart';
 import 'package:heides_lens/shared/themes/app_theme.dart';
-import 'package:heides_lens/features/settings/presentation/screens/settings_screen.dart';
 import 'package:heides_lens/features/welcome/presentation/screens/welcome_screen.dart';
 
 /// Generates screenshots of each app section via golden tests.
@@ -33,16 +31,16 @@ List<IndexedFile> _sampleFiles() {
   return [
     IndexedFile(id: 1, path: '$projectPath/main.dart', hash: 'a', language: 'dart', loc: 42, lastIndexed: DateTime.now()),
     IndexedFile(id: 2, path: '$projectPath/core/app_shell.dart', hash: 'b', language: 'dart', loc: 673, lastIndexed: DateTime.now()),
-    IndexedFile(id: 3, path: '$projectPath/core/providers/settings_provider.dart', hash: 'c', language: 'dart', loc: 161, lastIndexed: DateTime.now()),
+    IndexedFile(id: 3, path: '$projectPath/core/providers/findings_provider.dart', hash: 'c', language: 'dart', loc: 161, lastIndexed: DateTime.now()),
     IndexedFile(id: 4, path: '$projectPath/core/providers/project_provider.dart', hash: 'd', language: 'dart', loc: 116, lastIndexed: DateTime.now()),
-    IndexedFile(id: 5, path: '$projectPath/core/services/llm_service.dart', hash: 'e', language: 'dart', loc: 192, lastIndexed: DateTime.now()),
+    IndexedFile(id: 5, path: '$projectPath/core/providers/heides_provider.dart', hash: 'e', language: 'dart', loc: 192, lastIndexed: DateTime.now()),
     IndexedFile(id: 6, path: '$projectPath/data/services/indexing_engine.dart', hash: 'f', language: 'dart', loc: 454, lastIndexed: DateTime.now()),
-    IndexedFile(id: 7, path: '$projectPath/features/workflow/presentation/screens/workflow_screen.dart', hash: 'g', language: 'dart', loc: 500, lastIndexed: DateTime.now()),
+    IndexedFile(id: 7, path: '$projectPath/features/home/presentation/screens/home_screen.dart', hash: 'g', language: 'dart', loc: 500, lastIndexed: DateTime.now()),
     IndexedFile(id: 8, path: '$projectPath/features/graph/presentation/screens/graph_screen.dart', hash: 'h', language: 'dart', loc: 1756, lastIndexed: DateTime.now()),
     IndexedFile(id: 9, path: '$projectPath/features/review/presentation/screens/review_screen.dart', hash: 'i', language: 'dart', loc: 431, lastIndexed: DateTime.now()),
     IndexedFile(id: 10, path: '$projectPath/shared/themes/app_colors.dart', hash: 'j', language: 'dart', loc: 89, lastIndexed: DateTime.now()),
     IndexedFile(id: 11, path: '$projectPath/shared/themes/app_theme.dart', hash: 'k', language: 'dart', loc: 74, lastIndexed: DateTime.now()),
-    IndexedFile(id: 12, path: '$projectPath/features/settings/presentation/screens/settings_screen.dart', hash: 'l', language: 'dart', loc: 300, lastIndexed: DateTime.now()),
+    IndexedFile(id: 12, path: '$projectPath/features/docs/presentation/screens/docs_screen.dart', hash: 'l', language: 'dart', loc: 300, lastIndexed: DateTime.now()),
   ];
 }
 
@@ -79,7 +77,7 @@ List<Map<String, dynamic>> _sampleFindings() {
       'id': '2', 'severity': 'critical', 'category': 'security',
       'title': 'Hardcoded credentials committed',
       'description': 'A production API key is present in the source tree.',
-      'location': 'mobile/lib/core/providers/settings_provider.dart:80', 'suggestion': 'Move credentials to environment variables or secure storage.',
+      'location': 'mobile/lib/core/providers/heides_provider.dart:80', 'suggestion': 'Move credentials to environment variables or secure storage.',
     },
     {
       'id': '3', 'severity': 'warning', 'category': 'performance',
@@ -123,7 +121,6 @@ Future<ProviderContainer> _buildContainer() async {
     projectProvider.overrideWith((ref) => ProjectNotifier()..addProject(Project(
           id: '1', name: 'Heides Lens', path: projectPath, lastOpened: DateTime.now(),
         ))),
-    settingsProvider.overrideWith((ref) => SettingsNotifier()..setApiKey('sk-or-********')),
   ]);
   return container;
 }
@@ -181,14 +178,6 @@ void main() {
     await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/explorer.png'));
   });
 
-  testWidgets('04 - workflow (chat)', (tester) async {
-    final container = await _buildContainer();
-    await _pumpApp(tester, container);
-    container.read(navigationProvider.notifier).setMode(AppMode.workflow);
-    await tester.pumpAndSettle(const Duration(milliseconds: 300));
-    await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/workflow.png'));
-  });
-
   testWidgets('05 - graph (neural view)', (tester) async {
     final container = await _buildContainer();
     await _pumpApp(tester, container);
@@ -238,19 +227,5 @@ void main() {
     container.read(navigationProvider.notifier).setMode(AppMode.review);
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
     await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/review.png'));
-  });
-
-  testWidgets('08 - settings', (tester) async {
-    final container = await _buildContainer();
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark,
-        home: const SettingsScreen(),
-      ),
-    ));
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    await expectLater(find.byType(SettingsScreen), matchesGoldenFile('goldens/settings.png'));
   });
 }

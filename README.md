@@ -68,15 +68,6 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 - Sidebar closed by default — toggle with the Explorer icon or `Ctrl+1`
 - Click any file to open the viewer with breadcrumbs and line numbers (`Esc` to return)
 
-### Query (Workflow Chat)
-
-![Query](assets/images/screens-jpg/workflow.jpg)
-
-- Ask the nervous system about your code — grounded in the HEIDES graph, not guesses
-- Automatic `spine.query` on symbols mentioned in your question
-- Workspace manifest (symbols, entrypoints, hubs) injected into every request
-- Providers: OpenRouter, OpenAI, Anthropic, Gemini, Ollama (optional)
-
 ### Review (Findings)
 
 ![Review](assets/images/screens-jpg/review.jpg)
@@ -90,23 +81,8 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 ![Home](assets/images/screens-jpg/home.jpg)
 
 - Interactive dashboard: project stats, health snapshot, and shortcuts
-- Tappable cards navigate straight to the mesh, query, and review
+- Tappable cards navigate straight to the mesh and review
 - Notification badges on the activity bar show unread counts per mode
-
-### Plugins (Marketplace)
-
-![Plugins](assets/images/screens-jpg/plugins.jpg)
-
-- Marketplace with live search and category filters
-- One-click install with visual state
-- Sandboxed execution model with manifest-driven permissions
-
-### Settings
-
-![Settings](assets/images/screens-jpg/settings.jpg)
-
-- Provider selection and model dropdown per provider
-- API keys in secure storage, **Test Connection** validation
 
 ### Indexing Engine
 - SQLite-backed file scanner
@@ -130,9 +106,8 @@ heides-lens/
 │   │   ├── core/                 # App shell, providers, services
 │   │   │   └── services/
 │   │   │       ├── heides_service.dart     # MCP client (spawns `heides mcp`)
-│   │   │       ├── spikey_system_prompt.dart # HEIDES-aware AI prompt
-│   │   │       └── llm_service.dart        # Optional LLM providers
-│   │   ├── features/             # Plan, Query, Graph, Review, Plugins
+│   │   │       └── graph_analysis.dart     # Deterministic structural analysis
+│   │   ├── features/             # Explorer, Graph, Review
 │   │   ├── shared/               # Themes, logos, widgets
 │   │   └── data/                 # Indexing engine, SQLite
 │   └── test/
@@ -147,7 +122,7 @@ heides-lens/
 Open a folder
   → HEIDES spine.scan maps files, symbols, calls into .heides/index.db
   → Lens renders the neural mesh from the graph
-  → spine.describe / spine.query ground every AI answer (kilobytes, not megabytes)
+  → spine.describe / spine.query answer every question (kilobytes, not megabytes)
   → harmony.check surfaces findings with file:line evidence
   → harmony.staged gates every proposed patch before it touches disk
 ```
@@ -212,42 +187,12 @@ heides plan "refactor the checkout flow"
 1. Launch Heides Lens
 2. First run: pick a logo → HEIDES engine installs itself (one click)
 3. **Open a folder** — the neural mesh renders from the spine graph
-4. Ask the nervous system anything: hover the graph, query symbols, review findings
+4. Explore: hover the graph, browse the file tree, review findings
 
 ## Configuration
 
 ### HEIDES
 HEIDES needs no configuration — local by default, no account, no cloud.
-
-### App (optional AI)
-Settings screen provides:
-- Provider selection (OpenRouter, OpenAI, Anthropic, Gemini, Ollama)
-- Model dropdown per provider
-- API key input with secure storage
-- Configuration validation
-
-## Supported Models
-
-### OpenRouter (200+ models)
-- OpenAI: GPT-4o, GPT-4o Mini, GPT-4 Turbo
-- Anthropic: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
-- Google: Gemini Pro
-- Meta: Llama 3.1 (70B, 405B)
-- DeepSeek: DeepSeek Chat
-- Kimi: Kimi Chat
-- Minimax: Minimax Chat
-
-### OpenAI
-- GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-3.5 Turbo
-
-### Anthropic
-- Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
-
-### Google Gemini
-- Gemini 1.5 Pro, Gemini 1.5 Flash, Gemini 1.0 Pro
-
-### Ollama (local)
-- Llama 3.1, Mistral, CodeLlama, Phi3
 
 ## Plugin System
 
@@ -324,7 +269,6 @@ packages/cli/
 │   ├── commands/          # CLI commands (analyze, diff, graph, etc.)
 │   ├── analysis/          # Diff engine, AST parser, graph builder
 │   ├── plugins/           # Plugin loader, sandbox
-│   ├── ai/                # LLM providers (OpenAI, Anthropic, Ollama, OpenRouter, Gemini)
 │   └── models/            # TypeScript types
 ├── plugins/               # Built-in plugins
 └── tests/                 # Unit and integration tests
@@ -333,17 +277,14 @@ mobile/
 ├── lib/
 │   ├── core/              # App shell, providers, services
 │   │   ├── providers/     # Riverpod state management
-│   │   ├── services/      # Marketplace, memory store, plugin sandbox
+│   │   ├── services/      # HEIDES MCP client, indexing
 │   │   └── app_shell.dart # Main shell with sidebar, menu bar
 │   ├── features/          # Feature modules
-│   │   ├── plan/          # Architecture planner
-│   │   ├── workflow/      # Chat interface
 │   │   ├── graph/         # Neural graph visualization
 │   │   ├── review/        # Findings panel
-│   │   ├── plugins/       # Plugin marketplace UI
 │   │   ├── file_tree/     # File explorer
 │   │   ├── file_viewer/   # Code viewer with line numbers
-│   │   └── settings/      # Provider/model configuration
+│   │   └── docs/          # In-app documentation
 │   ├── shared/            # Themes, colors, widgets
 │   └── data/              # Indexing engine, SQLite
 └── test/                  # Widget and unit tests
@@ -380,15 +321,10 @@ Please include:
 - [x] Dependency graph builder
 - [x] Security scanner plugin
 - [x] Plugin loader and marketplace
-- [x] LLM providers: OpenAI, Anthropic, Ollama, OpenRouter, Gemini
 - [x] Flutter cross-platform UI
-- [x] Plan mode with architecture scaffolds
-- [x] Workflow mode with chat
 - [x] Graph mode with neural visualization
 - [x] Review mode with real findings
-- [x] Plugins mode with marketplace
 - [x] File tree and content viewer
-- [x] Settings with model selection
 - [x] Indexing engine with SQLite
 - [x] Desktop window controls
 - [ ] VS Code-like file manager (rename, delete, create)

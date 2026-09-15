@@ -36,18 +36,7 @@ from the real UI via golden tests — regenerate with
 - Click any file to open it in the viewer with breadcrumb navigation and
   line numbers. `Esc` returns to the previous view.
 
-## 4. Query (Chat with the nervous system)
-
-![Workflow](../assets/images/screens-jpg/workflow.jpg)
-
-- Chat with an AI assistant that has full project context: file tree,
-  dependencies, findings, and entry points are injected into the system
-  prompt.
-- The header badge shows when the AI can see the project.
-- Responses render markdown with syntax-highlighted code blocks.
-- Providers: OpenRouter, OpenAI, Anthropic, Gemini, Ollama.
-
-## 5. Neural Mesh (Graph)
+## 4. Neural Mesh (Graph)
 
 ![Neural Graph](../assets/images/screens-jpg/graph.jpg)
 
@@ -62,27 +51,10 @@ from the real UI via golden tests — regenerate with
   fit-to-view button, and a minimap with viewport indicator.
 - Toggle to **Grid View** for a card-based overview sorted by type.
 
-## 6. Review (Findings)
+## 5. Review (Findings)
 
 ![Review](../assets/images/screens-jpg/review.jpg)
 
 - Findings from static analysis, sorted critical → warning → info.
 - Click a finding to preview the exact file with the target line highlighted.
 - Inline suggestions for every finding.
-
-## 7. Plugins (Marketplace)
-
-![Plugins](../assets/images/screens-jpg/plugins.jpg)
-
-- Browse the marketplace with live search and category filters.
-- One-click install; installed plugins show state.
-- Sandboxed execution model with manifest-driven permissions.
-
-## 8. Settings
-
-![Settings](../assets/images/screens-jpg/settings.jpg)
-
-- Provider selection (OpenRouter, OpenAI, Anthropic, Gemini, Ollama).
-- Model dropdown per provider.
-- API keys stored in secure storage (or loaded from environment).
-- **Test Connection** validates the key against the provider.

@@ -7,8 +7,6 @@ import 'package:heides_lens/core/providers/indexing_provider.dart';
 import 'package:heides_lens/features/welcome/presentation/screens/welcome_screen.dart';
 import 'package:heides_lens/features/graph/presentation/screens/graph_screen.dart';
 import 'package:heides_lens/features/review/presentation/screens/review_screen.dart';
-import 'package:heides_lens/features/workflow/presentation/screens/workflow_screen.dart';
-import 'package:heides_lens/features/settings/presentation/screens/settings_screen.dart';
 
 void main() {
   group('ProjectProvider Tests', () {
@@ -108,11 +106,11 @@ void main() {
       final container = ProviderContainer();
       final notifier = container.read(navigationProvider.notifier);
       
-      notifier.setIndex(3);
+      notifier.setIndex(AppMode.values.indexOf(AppMode.graph));
       
       final state = container.read(navigationProvider);
       expect(state.currentMode, AppMode.graph);
-      expect(state.selectedIndex, 3);
+      expect(state.selectedIndex, AppMode.values.indexOf(AppMode.graph));
     });
 
     test('setIndex ignores invalid index', () {
@@ -186,43 +184,6 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 1));
       
       expect(find.text('Select a project to view findings'), findsOneWidget);
-    });
-  });
-
-  group('WorkflowScreen Widget Tests', () {
-    testWidgets('WorkflowScreen shows header', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: Scaffold(
-              body: WorkflowScreen(),
-            ),
-          ),
-        ),
-      );
-
-      await tester.pumpAndSettle(const Duration(seconds: 1));
-      
-      expect(find.text('Workflow'), findsOneWidget);
-    });
-  });
-
-  group('SettingsScreen Widget Tests', () {
-    testWidgets('SettingsScreen shows settings UI', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: Scaffold(
-              body: SettingsScreen(),
-            ),
-          ),
-        ),
-      );
-
-      await tester.pumpAndSettle(const Duration(seconds: 1));
-      
-      expect(find.text('Settings'), findsOneWidget);
-      expect(find.text('AI Provider'), findsOneWidget);
     });
   });
 }

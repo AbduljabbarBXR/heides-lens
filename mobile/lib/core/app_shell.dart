@@ -13,12 +13,10 @@ import 'package:heides_lens/core/providers/notifications_provider.dart';
 import 'package:heides_lens/core/onboarding/onboarding_overlay.dart';
 import 'package:heides_lens/core/services/graph_analysis.dart';
 import 'package:heides_lens/features/home/presentation/screens/home_screen.dart';
-import 'package:heides_lens/features/workflow/presentation/screens/workflow_screen.dart';
 import 'package:heides_lens/features/graph/presentation/screens/graph_screen.dart';
 import 'package:heides_lens/features/review/presentation/screens/review_screen.dart';
 import 'package:heides_lens/features/file_tree/presentation/widgets/file_tree_viewer.dart';
 import 'package:heides_lens/features/file_viewer/presentation/widgets/file_content_viewer.dart';
-import 'package:heides_lens/features/settings/presentation/screens/settings_screen.dart';
 import 'package:heides_lens/features/docs/presentation/screens/docs_screen.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
@@ -186,17 +184,13 @@ class _AppShellState extends ConsumerState<AppShell> {
           ref.read(navigationProvider.notifier).setMode(AppMode.explorer);
           setState(() => _isSidebarOpen = true);
         case LogicalKeyboardKey.digit3:
-          ref.read(navigationProvider.notifier).setMode(AppMode.workflow);
-        case LogicalKeyboardKey.digit4:
           ref.read(navigationProvider.notifier).setMode(AppMode.graph);
           ref.read(notificationsProvider.notifier).markSeen('graph');
-        case LogicalKeyboardKey.digit5:
+        case LogicalKeyboardKey.digit4:
           ref.read(navigationProvider.notifier).setMode(AppMode.review);
           ref.read(notificationsProvider.notifier).markSeen('review');
         case LogicalKeyboardKey.keyP:
           _showProjectSelector();
-        case LogicalKeyboardKey.comma:
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
       }
     }
 
@@ -302,10 +296,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                   _MenuButton(label: 'File', onTap: _showFileMenu),
                   _MenuButton(label: 'View', onTap: _showViewMenu),
                   _MenuButton(label: 'Help', onTap: _showHelpMenu),
-                  _MenuButton(
-                    label: 'Settings',
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
-                  ),
                   const Spacer(),
                   if (projectState.activeProject != null)
                     Text(
@@ -359,15 +349,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                         ),
                         const SizedBox(height: 4),
                         _ActivityIconButton(
-                          icon: Icons.terminal_rounded,
-                          tooltip: 'Query (Ctrl+3)',
-                          isActive: navState.currentMode == AppMode.workflow,
-                          onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.workflow),
-                        ),
-                        const SizedBox(height: 4),
-                        _ActivityIconButton(
                           icon: Icons.account_tree_rounded,
-                          tooltip: 'Graph (Ctrl+4)',
+                          tooltip: 'Graph (Ctrl+3)',
                           isActive: navState.currentMode == AppMode.graph,
                           badge: notificationBadges.graph,
                           onTap: () {
@@ -378,7 +361,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                         const SizedBox(height: 4),
                         _ActivityIconButton(
                           icon: Icons.verified_rounded,
-                          tooltip: 'Review (Ctrl+5)',
+                          tooltip: 'Review (Ctrl+4)',
                           isActive: navState.currentMode == AppMode.review,
                           badge: notificationBadges.review,
                           onTap: () {
@@ -502,8 +485,6 @@ class _AppShellState extends ConsumerState<AppShell> {
           );
         }
         return const SizedBox.shrink(key: ValueKey('explorer-empty-tree'));
-      case AppMode.workflow:
-        return const WorkflowScreen(key: ValueKey('workflow'));
       case AppMode.graph:
         return const GraphScreen(key: ValueKey('graph'));
       case AppMode.review:
