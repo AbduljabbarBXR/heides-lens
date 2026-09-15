@@ -7,7 +7,6 @@ import 'package:spikey/core/providers/indexing_provider.dart';
 import 'package:spikey/features/welcome/presentation/screens/welcome_screen.dart';
 import 'package:spikey/features/graph/presentation/screens/graph_screen.dart';
 import 'package:spikey/features/review/presentation/screens/review_screen.dart';
-import 'package:spikey/features/plan/presentation/screens/plan_screen.dart';
 import 'package:spikey/features/workflow/presentation/screens/workflow_screen.dart';
 import 'package:spikey/features/plugins/presentation/screens/plugins_screen.dart';
 import 'package:spikey/features/settings/presentation/screens/settings_screen.dart';
@@ -188,24 +187,6 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 1));
       
       expect(find.text('Select a project to view findings'), findsOneWidget);
-    });
-  });
-
-  group('PlanScreen Widget Tests', () {
-    testWidgets('PlanScreen shows header', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: Scaffold(
-              body: PlanScreen(),
-            ),
-          ),
-        ),
-      );
-
-      await tester.pumpAndSettle(const Duration(seconds: 1));
-      
-      expect(find.text('Architecture Planner'), findsOneWidget);
     });
   });
 

@@ -11,7 +11,6 @@ import 'package:spikey/core/providers/project_provider.dart';
 import 'package:spikey/core/providers/settings_provider.dart';
 import 'package:spikey/data/services/indexing_engine.dart';
 import 'package:spikey/shared/themes/app_theme.dart';
-import 'package:spikey/features/plan/presentation/screens/plan_screen.dart';
 import 'package:spikey/features/settings/presentation/screens/settings_screen.dart';
 import 'package:spikey/features/welcome/presentation/screens/welcome_screen.dart';
 
@@ -180,16 +179,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/explorer.png'));
-  });
-
-  testWidgets('03 - plan', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      home: const PlanScreen(),
-    ));
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    await expectLater(find.byType(PlanScreen), matchesGoldenFile('goldens/plan.png'));
   });
 
   testWidgets('04 - workflow (chat)', (tester) async {

@@ -85,12 +85,13 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 - Sorted blocker → critical → warning → info with file:line evidence
 - Click a finding to preview the exact file and line
 
-### Plan
+### Home (Dashboard)
 
-![Plan](assets/images/screens-jpg/plan.jpg)
+![Home](assets/images/screens-jpg/home.jpg)
 
-- Describe a feature; generate an architecture scaffold checked against the graph
-- Grounding validates the plan before the agent builds
+- Interactive dashboard: project stats, health snapshot, and shortcuts
+- Tappable cards navigate straight to the mesh, query, and review
+- Notification badges on the activity bar show unread counts per mode
 
 ### Plugins (Marketplace)
 

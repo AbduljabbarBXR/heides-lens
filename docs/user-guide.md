@@ -6,34 +6,35 @@ This guide covers each section of the desktop app. All screenshots are rendered
 from the real UI via golden tests — regenerate with
 `flutter test test/screenshots --update-goldens`.
 
-## 1. Welcome & Onboarding
+## 1. Home (Dashboard)
+
+![Home](../assets/images/screens-jpg/home.jpg)
+
+- Interactive dashboard that lands on launch: project stats, health snapshot,
+  HEIDES engine status, and tappable cards that jump to the mesh, query, and
+  review.
+- Notification badges on the activity bar show unread counts per mode.
+
+## 2. Welcome & Onboarding
 
 ![Welcome & Onboarding](../assets/images/screens-jpg/welcome.jpg)
 
-- First launch shows an interactive tour of the four core capabilities:
-  graph, chat, review, and plugins.
+- First launch shows an interactive tour of the core capabilities:
+  graph, query, review, and plugins.
 - The welcome dialog provides quick links to documentation, the repository,
   and the plugin marketplace.
 - **Open Folder** starts the project selector; selecting a folder kicks off
   indexing in the background.
 
-## 2. Explorer (File Tree)
+## 3. Explorer (File Tree)
 
 ![Explorer](../assets/images/screens-jpg/explorer.jpg)
 
 - Language-aware file tree with colored icons (Dart, TS/JS, Python, config, …).
 - The sidebar is closed by default — open it with the Explorer icon in the
-  activity bar or `Ctrl+1`.
+  activity bar or `Ctrl+2`.
 - Click any file to open it in the viewer with breadcrumb navigation and
   line numbers. `Esc` returns to the previous view.
-
-## 3. Plan Mode
-
-![Plan](../assets/images/screens-jpg/plan.jpg)
-
-- Describe a feature or architecture change and generate a scaffold with
-  edge cases, error handling, and design patterns.
-- Plan mode creates actual project files from the scaffold.
 
 ## 4. Query (Chat with the nervous system)
 
