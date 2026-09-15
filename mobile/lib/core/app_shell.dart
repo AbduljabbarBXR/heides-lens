@@ -15,8 +15,6 @@ import 'package:heides_lens/core/services/graph_analysis.dart';
 import 'package:heides_lens/features/home/presentation/screens/home_screen.dart';
 import 'package:heides_lens/features/graph/presentation/screens/graph_screen.dart';
 import 'package:heides_lens/features/review/presentation/screens/review_screen.dart';
-import 'package:heides_lens/features/file_tree/presentation/widgets/file_tree_viewer.dart';
-import 'package:heides_lens/features/file_viewer/presentation/widgets/file_content_viewer.dart';
 import 'package:heides_lens/features/docs/presentation/screens/docs_screen.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
@@ -32,8 +30,6 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> with WindowListener {
-  String? _selectedFilePath;
-  bool _isSidebarOpen = false;
   bool _onboardingChecked = false;
   bool _showOnboarding = false;
   bool _showLogoPicker = false;
@@ -206,22 +202,13 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
         case LogicalKeyboardKey.digit1:
           ref.read(navigationProvider.notifier).setMode(AppMode.home);
         case LogicalKeyboardKey.digit2:
-          ref.read(navigationProvider.notifier).setMode(AppMode.explorer);
-          setState(() => _isSidebarOpen = true);
-        case LogicalKeyboardKey.digit3:
           ref.read(navigationProvider.notifier).setMode(AppMode.graph);
           ref.read(notificationsProvider.notifier).markSeen('graph');
-        case LogicalKeyboardKey.digit4:
+        case LogicalKeyboardKey.digit3:
           ref.read(navigationProvider.notifier).setMode(AppMode.review);
           ref.read(notificationsProvider.notifier).markSeen('review');
         case LogicalKeyboardKey.keyP:
           _showProjectSelector();
-      }
-    }
-
-    if (event.logicalKey == LogicalKeyboardKey.escape) {
-      if (_selectedFilePath != null) {
-        setState(() => _selectedFilePath = null);
       }
     }
   }
@@ -231,7 +218,6 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
     final navState = ref.watch(navigationProvider);
     final projectState = ref.watch(projectProvider);
     final notificationBadges = ref.watch(notificationsProvider);
-    final isExplorer = navState.currentMode == AppMode.explorer;
 
     if (projectState.activeProject != null &&
         projectState.activeProject!.path != _lastPreloadedPath) {
@@ -319,7 +305,6 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
                   ),
                   const SizedBox(width: 20),
                   _MenuButton(label: 'File', onTap: _showFileMenu),
-                  _MenuButton(label: 'View', onTap: _showViewMenu),
                   _MenuButton(label: 'Help', onTap: _showHelpMenu),
                   const Spacer(),
                   if (projectState.activeProject != null)
@@ -369,23 +354,8 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
                         ),
                         const SizedBox(height: 4),
                         _ActivityIconButton(
-                          icon: Icons.folder_rounded,
-                          tooltip: 'Explorer (Ctrl+2)',
-                          isActive: _isSidebarOpen && isExplorer,
-                          onTap: () {
-                            final notifier = ref.read(navigationProvider.notifier);
-                            if (_isSidebarOpen && navState.currentMode == AppMode.explorer) {
-                              setState(() => _isSidebarOpen = false);
-                            } else {
-                              notifier.setMode(AppMode.explorer);
-                              setState(() => _isSidebarOpen = true);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 4),
-                        _ActivityIconButton(
                           icon: Icons.account_tree_rounded,
-                          tooltip: 'Neural Mesh (Ctrl+3)',
+                          tooltip: 'Neural Mesh (Ctrl+2)',
                           isActive: navState.currentMode == AppMode.graph,
                           badge: notificationBadges.graph,
                           onTap: () {
@@ -396,7 +366,7 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
                         const SizedBox(height: 4),
                         _ActivityIconButton(
                           icon: Icons.verified_rounded,
-                          tooltip: 'Review (Ctrl+4)',
+                          tooltip: 'Review (Ctrl+3)',
                           isActive: navState.currentMode == AppMode.review,
                           badge: notificationBadges.review,
                           onTap: () {
@@ -420,53 +390,6 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
                       ],
                     ),
                   ),
-                  // Side bar (file tree) — only when opened via Explorer icon
-                  if (_isSidebarOpen && projectState.activeProject != null)
-                    Container(
-                      width: 220,
-                      color: AppColors.surface,
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: const BoxDecoration(
-                              border: Border(bottom: BorderSide(color: AppColors.border)),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.folder_rounded, size: 16, color: AppColors.primary),
-                                const SizedBox(width: 8),
-                                Text('Explorer', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
-                                const Spacer(),
-                                MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: GestureDetector(
-                                    onTap: () => setState(() => _isSidebarOpen = false),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(2),
-                                      child: Icon(Icons.close_rounded, size: 14, color: AppColors.textMuted),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: FileTreeViewer(
-                              projectPath: projectState.activeProject!.path,
-                              selectedFilePath: _selectedFilePath,
-                              onFileTap: (path) {
-                                setState(() {
-                                  _selectedFilePath = path;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (_isSidebarOpen && projectState.activeProject != null)
-                    Container(width: 1, color: AppColors.border),
                   // Main content area
                   Expanded(
                     child: AnimatedSwitcher(
@@ -494,32 +417,7 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
   Widget _buildModeContent(AppMode mode, dynamic activeProject) {
     switch (mode) {
       case AppMode.home:
-        return const HomeScreen(key: ValueKey('home'));
-      case AppMode.explorer:
-        if (activeProject == null) {
-          return Center(
-            key: const ValueKey('explorer-empty'),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.account_tree_rounded, size: 64, color: AppColors.textMuted),
-                const SizedBox(height: 16),
-                Text('Open a folder to see the neural mesh',
-                    style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
-                const SizedBox(height: 8),
-                Text('HEIDES maps every file, symbol, and call into a living graph',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _showProjectSelector,
-                  icon: const Icon(Icons.folder_open_rounded, size: 18),
-                  label: const Text('Open Folder'),
-                ),
-              ],
-            ),
-          );
-        }
-        return const SizedBox.shrink(key: ValueKey('explorer-empty-tree'));
+        return HomeScreen(key: const ValueKey('home'), onOpenProject: _showProjectSelector);
       case AppMode.graph:
         return const GraphScreen(key: ValueKey('graph'));
       case AppMode.review:
@@ -528,68 +426,7 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
   }
 
   Widget _buildMainContent(AppMode mode, dynamic activeProject) {
-    if (_selectedFilePath != null) {
-      return _buildFileViewerWithBack(_selectedFilePath!);
-    }
     return _buildModeContent(mode, activeProject);
-  }
-
-  Widget _buildFileViewerWithBack(String filePath) {
-    return Column(
-      key: const ValueKey('file-viewer'),
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.border)),
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, size: 18, color: AppColors.textSecondary),
-                onPressed: () => setState(() => _selectedFilePath = null),
-                tooltip: 'Back (Esc)',
-              ),
-              const SizedBox(width: 4),
-              Icon(Icons.folder_rounded, size: 14, color: AppColors.textMuted),
-              const SizedBox(width: 4),
-              ..._buildBreadcrumbs(filePath),
-            ],
-          ),
-        ),
-        Expanded(
-          child: FileContentViewer(filePath: filePath),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> _buildBreadcrumbs(String filePath) {
-    final parts = filePath.split('/');
-    final widgets = <Widget>[];
-    final displayParts = parts.length > 3 ? parts.sublist(parts.length - 3) : parts;
-
-    for (var i = 0; i < displayParts.length; i++) {
-      if (i > 0) {
-        widgets.add(const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Icon(Icons.chevron_right_rounded, size: 14, color: AppColors.textMuted),
-        ));
-      }
-      final isLast = i == displayParts.length - 1;
-      widgets.add(
-        Text(
-          displayParts[i],
-          style: TextStyle(
-            fontSize: 12,
-            color: isLast ? AppColors.textPrimary : AppColors.textSecondary,
-            fontWeight: isLast ? FontWeight.w500 : FontWeight.normal,
-          ),
-        ),
-      );
-    }
-    return widgets;
   }
 
   void _showFileMenu() {
@@ -603,22 +440,6 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
               ? () => ref.read(projectProvider.notifier).removeProject(ref.read(projectProvider).activeProject!.id)
               : null,
           child: const Text('Close Project'),
-        ),
-      ],
-    );
-  }
-
-  void _showViewMenu() {
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(70, 36, 154, 0),
-      items: [
-        PopupMenuItem(
-          onTap: () {
-            ref.read(navigationProvider.notifier).setMode(AppMode.explorer);
-            setState(() => _isSidebarOpen = true);
-          },
-          child: const Text('Reset Layout'),
         ),
       ],
     );

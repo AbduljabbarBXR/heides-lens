@@ -11,7 +11,7 @@ from the real UI via golden tests — regenerate with
 ![Home](../assets/images/screens-jpg/home.jpg)
 
 - Interactive dashboard that lands on launch: project stats, health snapshot,
-  HEIDES engine status, and tappable cards that jump to the mesh, query, and
+  HEIDES engine status, and tappable cards that jump to the mesh and
   review.
 - Notification badges on the activity bar show unread counts per mode.
 
@@ -20,23 +20,13 @@ from the real UI via golden tests — regenerate with
 ![Welcome & Onboarding](../assets/images/screens-jpg/welcome.jpg)
 
 - First launch shows an interactive tour of the core capabilities:
-  graph, query, review, and plugins.
+  the mesh, review, and HEIDES engine.
 - The welcome dialog provides quick links to documentation, the repository,
-  and the plugin marketplace.
+  and the HEIDES engine.
 - **Open Folder** starts the project selector; selecting a folder kicks off
   indexing in the background.
 
-## 3. Explorer (File Tree)
-
-![Explorer](../assets/images/screens-jpg/explorer.jpg)
-
-- Language-aware file tree with colored icons (Dart, TS/JS, Python, config, …).
-- The sidebar is closed by default — open it with the Explorer icon in the
-  activity bar or `Ctrl+2`.
-- Click any file to open it in the viewer with breadcrumb navigation and
-  line numbers. `Esc` returns to the previous view.
-
-## 4. Code Neural Mesh
+## 3. Code Neural Mesh
 
 ![Neural Mesh](../assets/images/screens-jpg/graph.jpg)
 

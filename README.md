@@ -7,7 +7,7 @@
 
 **The nervous system for your code, with eyes.**
 
-Heides Lens is the visual companion to [HEIDES](https://github.com/AbduljabbarBXR/heides) — the deterministic code nervous system that maps every file, symbol, and call into a persistent graph, then guards every change against it. Lens is the UI: open a folder, see the mesh, query who-calls-what, review real findings, and plan against reality.
+Heides Lens is the visual companion to [HEIDES](https://github.com/AbduljabbarBXR/heides) — the deterministic code nervous system that maps every file, symbol, and call into a persistent graph, then guards every change against it. Lens is the UI: open a folder, see the mesh, query who-calls-what and review real findings.
 
 It is not another coding assistant. It is the brain your codebase never had — visualized, queryable, and standing guard.
 
@@ -49,7 +49,7 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 
 - Choose a logo for your Lens from five identity variants
 - **HEIDES engine setup** — one click installs the engine locally (no account, no cloud)
-- Interactive tour of the neural mesh, query, review, and guards
+- Interactive tour of the neural mesh, review, and guards
 
 ### Code Neural Mesh
 
@@ -59,14 +59,6 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 - **Orthogonal edges** that route around cards — dependency flow, back-edges/cycles, and vertical links are color-coded
 - Filter by node type, search, grid view toggle
 - Navigation: drag to pan, double-click / wheel / pinch to zoom, minimap, fit-to-view
-
-### Explorer (File Tree)
-
-![Explorer](assets/images/screens-jpg/explorer.jpg)
-
-- Language-aware file tree with colored icons
-- Sidebar closed by default — toggle with the Explorer icon or `Ctrl+1`
-- Click any file to open the viewer with breadcrumbs and line numbers (`Esc` to return)
 
 ### Review (Findings)
 
@@ -107,7 +99,7 @@ heides-lens/
 │   │   │   └── services/
 │   │   │       ├── heides_service.dart     # MCP client (spawns `heides mcp`)
 │   │   │       └── graph_analysis.dart     # Deterministic structural analysis
-│   │   ├── features/             # Explorer, Graph, Review
+│   │   ├── features/             # Graph, Review, Docs
 │   │   ├── shared/               # Themes, logos, widgets
 │   │   └── data/                 # Indexing engine, SQLite
 │   └── test/
@@ -187,7 +179,7 @@ heides plan "refactor the checkout flow"
 1. Launch Heides Lens
 2. First run: pick a logo → HEIDES engine installs itself (one click)
 3. **Open a folder** — the neural mesh renders from the spine graph
-4. Explore: hover the graph, browse the file tree, review findings
+4. Explore: hover the graph, review findings
 
 ## Configuration
 
@@ -280,10 +272,8 @@ mobile/
 │   │   ├── services/      # HEIDES MCP client, indexing
 │   │   └── app_shell.dart # Main shell with sidebar, menu bar
 │   ├── features/          # Feature modules
-│   │   ├── graph/         # Neural graph visualization
+│   │   ├── graph/         # Neural mesh visualization
 │   │   ├── review/        # Findings panel
-│   │   ├── file_tree/     # File explorer
-│   │   ├── file_viewer/   # Code viewer with line numbers
 │   │   └── docs/          # In-app documentation
 │   ├── shared/            # Themes, colors, widgets
 │   └── data/              # Indexing engine, SQLite
@@ -324,10 +314,9 @@ Please include:
 - [x] Flutter cross-platform UI
 - [x] Graph mode with neural visualization
 - [x] Review mode with real findings
-- [x] File tree and content viewer
 - [x] Indexing engine with SQLite
 - [x] Desktop window controls
-- [ ] VS Code-like file manager (rename, delete, create)
+- [ ] Code previews from findings (open file:line)
 - [ ] Integrated terminal
 - [ ] Command palette
 - [ ] Split views and tabs

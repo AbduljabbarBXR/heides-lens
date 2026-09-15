@@ -29,12 +29,13 @@ class _LogoPickerScreenState extends State<LogoPickerScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
-          child: Padding(
-            padding: const EdgeInsets.all(48),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Padding(
+              padding: const EdgeInsets.all(48),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
                   'Heides Lens',
@@ -70,12 +71,13 @@ class _LogoPickerScreenState extends State<LogoPickerScreen> {
                   'Pick one — you can change it later from Help menu',
                   style: TextStyle(color: AppColors.textMuted.withValues(alpha: 0.6), fontSize: 12),
                 ),
-              ],
+],
             ),
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

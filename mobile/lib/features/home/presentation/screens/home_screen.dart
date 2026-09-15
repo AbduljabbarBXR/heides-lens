@@ -9,7 +9,9 @@ import 'package:heides_lens/core/providers/indexing_provider.dart';
 import 'package:heides_lens/core/providers/navigation_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onOpenProject;
+
+  const HomeScreen({super.key, this.onOpenProject});
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -88,11 +90,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          _ActionButton(
-            icon: Icons.folder_open_rounded,
-            label: 'Open Folder',
-            onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.explorer),
-          ),
+          if (widget.onOpenProject != null)
+            _ActionButton(
+              icon: Icons.folder_open_rounded,
+              label: 'Open Folder',
+              onTap: widget.onOpenProject!,
+            ),
         ],
       ),
     );

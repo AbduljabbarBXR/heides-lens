@@ -31,13 +31,6 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
       mockContent: _GraphMock(),
     ),
     _OnboardingStep(
-      icon: Icons.chat_rounded,
-      title: 'Chat With Your Code',
-      subtitle: 'Ask questions about your codebase. The AI sees your files, understands context, and gives precise answers.',
-      color: Color(0xFF10B981),
-      mockContent: _ChatMock(),
-    ),
-    _OnboardingStep(
       icon: Icons.verified_rounded,
       title: 'Review & Fix',
       subtitle: 'Automated code review finds bugs, security issues, and improvements. Click any finding to see the exact location.',
@@ -150,16 +143,17 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
 
           // Main content
           Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: Padding(
-                    padding: const EdgeInsets.all(48),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Padding(
+                      padding: const EdgeInsets.all(48),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         // Step indicator
                         Row(
@@ -291,6 +285,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
                   ),
                 ),
               ),
+            ),
             ),
           ),
 
@@ -431,59 +426,6 @@ class _EdgePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _ChatMock extends StatelessWidget {
-  const _ChatMock();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _mockBubble('What does this function do?', true),
-          const SizedBox(height: 8),
-          _mockBubble('This function handles user authentication by validating the JWT token against the Supabase backend...', false),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Ask about your codebase...',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-                  ),
-                ),
-                Icon(Icons.send_rounded, color: AppColors.primary, size: 16),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _mockBubble(String text, bool isUser) {
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        constraints: const BoxConstraints(maxWidth: 280),
-        decoration: BoxDecoration(
-          color: isUser ? AppColors.primary.withOpacity(0.8) : Colors.white.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(text, style: TextStyle(color: Colors.white, fontSize: 12, height: 1.4)),
-      ),
-    );
-  }
 }
 
 class _ReviewMock extends StatelessWidget {

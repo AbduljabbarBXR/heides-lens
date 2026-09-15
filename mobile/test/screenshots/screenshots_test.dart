@@ -168,16 +168,6 @@ void main() {
     await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/home.png'));
   });
 
-  testWidgets('02 - explorer (file tree)', (tester) async {
-    final container = await _buildContainer();
-    await _pumpApp(tester, container);
-    // Open the sidebar via the Explorer activity button
-    await tester.tap(find.byTooltip('Explorer (Ctrl+2)'));
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(milliseconds: 400));
-    await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/explorer.png'));
-  });
-
   testWidgets('05 - graph (neural view)', (tester) async {
     final container = await _buildContainer();
     await _pumpApp(tester, container);

@@ -60,7 +60,7 @@ class WelcomeScreen extends ConsumerWidget {
               const SizedBox(height: 24),
               Text('The nervous system for your code, with eyes.', style: AppTextStyles.h3),
               const SizedBox(height: 8),
-              Text('A read-only lens over the HEIDES graph — explore, query, and inspect your codebase.', style: AppTextStyles.body),
+              Text('A read-only lens over the HEIDES graph — explore and inspect your codebase.', style: AppTextStyles.body),
               const SizedBox(height: 24),
               Text('Quick Links', style: AppTextStyles.h3.copyWith(fontSize: 16)),
               const SizedBox(height: 12),

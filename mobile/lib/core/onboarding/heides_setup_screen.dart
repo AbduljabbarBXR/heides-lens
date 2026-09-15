@@ -128,12 +128,13 @@ class _HeidesSetupScreenState extends State<HeidesSetupScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Padding(
-            padding: const EdgeInsets.all(48),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Padding(
+              padding: const EdgeInsets.all(48),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 HeidesLogoMark(id: _logoId, size: 72),
                 const SizedBox(height: 20),
@@ -158,6 +159,7 @@ class _HeidesSetupScreenState extends State<HeidesSetupScreen> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

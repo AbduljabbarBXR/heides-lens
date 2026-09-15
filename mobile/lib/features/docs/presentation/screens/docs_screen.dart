@@ -27,16 +27,6 @@ const List<DocsSection> docsSections = [
     ],
   ),
   DocsSection(
-    title: 'Explorer',
-    subtitle: 'Browse your project files',
-    image: 'assets/images/screens/explorer.png',
-    bullets: [
-      'Language-aware file tree with colored icons',
-      'Open any file to view it with breadcrumb navigation',
-      'Open/close with the Explorer icon or Ctrl+2',
-    ],
-  ),
-  DocsSection(
     title: 'HEIDES Engine',
     subtitle: 'The code nervous system',
     image: 'assets/images/screens/graph.png',
