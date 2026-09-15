@@ -47,7 +47,7 @@ const List<DocsSection> docsSections = [
     ],
   ),
   DocsSection(
-    title: 'Neural Graph',
+    title: 'Neural Mesh',
     subtitle: 'Visualize your architecture',
     image: 'assets/images/screens/graph.png',
     bullets: [

@@ -36,9 +36,9 @@ from the real UI via golden tests — regenerate with
 - Click any file to open it in the viewer with breadcrumb navigation and
   line numbers. `Esc` returns to the previous view.
 
-## 4. Neural Mesh (Graph)
+## 4. Code Neural Mesh
 
-![Neural Graph](../assets/images/screens-jpg/graph.jpg)
+![Neural Mesh](../assets/images/screens-jpg/graph.jpg)
 
 - Layered dependency layout (Sugiyama-style): entry points on the left,
   dependencies flowing right in aligned columns.

@@ -31,7 +31,7 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> with WindowListener {
   String? _selectedFilePath;
   bool _isSidebarOpen = false;
   bool _onboardingChecked = false;
@@ -43,19 +43,44 @@ class _AppShellState extends ConsumerState<AppShell> {
   bool _isIndexing = false;
   double _indexingProgress = 0;
   String _indexingStatus = '';
+  bool _isMaximized = false;
 
   final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      windowManager.addListener(this);
+      _refreshMaximizedState();
+    }
     _checkOnboarding();
+  }
+
+  Future<void> _refreshMaximizedState() async {
+    try {
+      final isMaximized = await windowManager.isMaximized();
+      if (mounted) setState(() => _isMaximized = isMaximized);
+    } catch (_) {
+      // No window_manager platform in tests / non-desktop hosts.
+    }
+  }
+
+  @override
+  void onWindowMaximize() {
+    if (mounted) setState(() => _isMaximized = true);
+  }
+
+  @override
+  void onWindowUnmaximize() {
+    if (mounted) setState(() => _isMaximized = false);
   }
 
   String? _lastPreloadedPath;
 
   @override
   void dispose() {
+    windowManager.removeListener(this);
     _focusNode.dispose();
     super.dispose();
   }
@@ -305,11 +330,18 @@ class _AppShellState extends ConsumerState<AppShell> {
                   const SizedBox(width: 16),
                   if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) ...[
                     _WindowControlButton(icon: Icons.minimize_rounded, onTap: () async {
-                      final isMaximized = await windowManager.isMaximized();
-                      if (isMaximized) await windowManager.restore();
                       await windowManager.minimize();
                     }),
-                    _WindowControlButton(icon: Icons.check_box_outline_blank_rounded, onTap: () async => await windowManager.maximize()),
+                    _WindowControlButton(
+                      icon: _isMaximized ? Icons.filter_none_rounded : Icons.check_box_outline_blank_rounded,
+                      onTap: () async {
+                        if (_isMaximized) {
+                          await windowManager.restore();
+                        } else {
+                          await windowManager.maximize();
+                        }
+                      },
+                    ),
                     _WindowControlButton(icon: Icons.close_rounded, onTap: () async => await windowManager.close()),
                   ],
                 ],
@@ -350,7 +382,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                         const SizedBox(height: 4),
                         _ActivityIconButton(
                           icon: Icons.account_tree_rounded,
-                          tooltip: 'Graph (Ctrl+3)',
+                          tooltip: 'Neural Mesh (Ctrl+3)',
                           isActive: navState.currentMode == AppMode.graph,
                           badge: notificationBadges.graph,
                           onTap: () {

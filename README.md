@@ -51,7 +51,7 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 - **HEIDES engine setup** — one click installs the engine locally (no account, no cloud)
 - Interactive tour of the neural mesh, query, review, and guards
 
-### Neural Mesh (Graph)
+### Code Neural Mesh
 
 ![Neural Mesh](assets/images/screens-jpg/graph.jpg)
 

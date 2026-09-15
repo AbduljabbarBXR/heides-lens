@@ -192,16 +192,19 @@ void main() {
     container.read(navigationProvider.notifier).setMode(AppMode.graph);
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
 
-    // Select a card by tapping it (finder hits the card's GestureDetector)
-    final card = find.byType(GestureDetector).first;
-    await tester.tap(card);
+    // Select a card by tapping its file name (cards, chips, and buttons all
+    // use GestureDetector, so .first is no longer deterministic). .first is
+    // the card's own title: the tree renders cards in file order, so main.dart
+    // (first file) comes before the neighbor card that lists it as a link.
+    await tester.tap(find.text('main.dart').first);
     await tester.pumpAndSettle(const Duration(milliseconds: 600));
 
     // The info panel should now show node details (selection worked)
-    expect(find.text('Edge Types'), findsOneWidget);
+    expect(find.textContaining('links'), findsOneWidget);
 
-    // Tap empty background → selection clears
-    await tester.tapAt(const Offset(30, 250));
+    // Tap empty background (far right middle — away from cards, controls,
+    // and the info panel) → selection clears
+    await tester.tapAt(const Offset(1270, 400));
     await tester.pumpAndSettle(const Duration(milliseconds: 600));
     // After deselect, the panel shows the hint text instead of node details
     expect(find.textContaining('Hover or click'), findsOneWidget,
@@ -215,7 +218,6 @@ void main() {
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
 
     // The stable info panel (replaces flickering tooltips) shows the legend
-    expect(find.text('Edge Types'), findsOneWidget);
     expect(find.text('Dependency flow (→)'), findsOneWidget);
     expect(find.text('Back-edge / cycle (←)'), findsOneWidget);
     expect(find.text('Vertical link (↑↓)'), findsOneWidget);

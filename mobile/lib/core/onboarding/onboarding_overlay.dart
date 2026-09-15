@@ -26,7 +26,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
     _OnboardingStep(
       icon: Icons.account_tree_rounded,
       title: 'Visualize Your Code',
-      subtitle: 'See your entire codebase as an interactive graph. Understand dependencies, find patterns, and navigate architecture at a glance.',
+      subtitle: 'See your entire codebase as an interactive mesh. Understand dependencies, find patterns, and navigate architecture at a glance.',
       color: Color(0xFF6366F1),
       mockContent: _GraphMock(),
     ),

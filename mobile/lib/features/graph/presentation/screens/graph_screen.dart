@@ -256,7 +256,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                   children: [
                     Icon(Icons.account_tree_rounded, color: AppColors.primary, size: 20),
                     const SizedBox(width: 12),
-                    Text('Neural Graph', style: AppTextStyles.h3),
+                    Text('Neural Mesh', style: AppTextStyles.h3),
                     const SizedBox(width: 10),
                     // Engine source: HEIDES when attached, otherwise the local
                     // read-only index is a fallback and is labelled as such.
@@ -371,40 +371,48 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                   ],
                 ),
                 const SizedBox(height: 10),
-                // Facet views — one meaningful slice at a time
+                // Facet views — one meaningful slice at a time. Chips wrap when tight;
+                // the edge legend keeps its fixed size on the right.
                 Row(
                   children: [
                     const Icon(Icons.layers_rounded, size: 14, color: AppColors.textMuted),
                     const SizedBox(width: 8),
-                    ...GraphFacet.values.map((facet) {
-                      final isActive = _facet == facet;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(
-                          label: Text(
-                            _facetLabel(facet),
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isActive ? AppColors.background : AppColors.textSecondary,
-                            ),
-                          ),
-                          selected: isActive,
-                          onSelected: (_) {
-                            setState(() {
-                              _facet = facet;
-                              _nodePositions.clear();
-                            });
-                          },
-                          backgroundColor: AppColors.surfaceHover,
-                          selectedColor: AppColors.primary,
-                          checkmarkColor: AppColors.background,
-                          side: BorderSide(color: isActive ? AppColors.primary : AppColors.border),
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      );
-                    }),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          ...GraphFacet.values.map((facet) {
+                            final isActive = _facet == facet;
+                            return ChoiceChip(
+                              label: Text(
+                                _facetLabel(facet),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isActive ? AppColors.background : AppColors.textSecondary,
+                                ),
+                              ),
+                              selected: isActive,
+                              onSelected: (_) {
+                                setState(() {
+                                  _facet = facet;
+                                  _nodePositions.clear();
+                                });
+                              },
+                              backgroundColor: AppColors.surfaceHover,
+                              selectedColor: AppColors.primary,
+                              checkmarkColor: AppColors.background,
+                              side: BorderSide(color: isActive ? AppColors.primary : AppColors.border),
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const _EdgeLegend(),
                   ],
                 ),
               ],
@@ -1752,15 +1760,6 @@ class _NodeInfoPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Edge Types',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-          const SizedBox(height: 6),
-          _legendRow(AppColors.border.withValues(alpha: 0.55), 'Dependency flow (→)'),
-          _legendRow(AppColors.warning.withValues(alpha: 0.5), 'Back-edge / cycle (←)'),
-          _legendRow(AppColors.info.withValues(alpha: 0.4), 'Vertical link (↑↓)'),
-          const SizedBox(height: 10),
-          const Divider(height: 1),
-          const SizedBox(height: 8),
           if (n == null) ...[
             const Text('Hover or click a card to inspect it.',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
@@ -1794,30 +1793,6 @@ class _NodeInfoPanel extends StatelessWidget {
     );
   }
 
-  Widget _legendRow(Color color, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 3),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 20,
-            height: 0,
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: color, width: 2)),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(label,
-                style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
-                overflow: TextOverflow.ellipsis),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _chip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1833,6 +1808,42 @@ class _NodeInfoPanel extends StatelessWidget {
 }
 
 // ==================== MODULE BAND PAINTER ====================
+
+class _EdgeLegend extends StatelessWidget {
+  const _EdgeLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _item(AppColors.border.withValues(alpha: 0.55), 'Dependency flow (→)'),
+        const SizedBox(width: 14),
+        _item(AppColors.warning.withValues(alpha: 0.5), 'Back-edge / cycle (←)'),
+        const SizedBox(width: 14),
+        _item(AppColors.info.withValues(alpha: 0.4), 'Vertical link (↑↓)'),
+      ],
+    );
+  }
+
+  Widget _item(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 20,
+          height: 0,
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: color, width: 2)),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(label,
+            style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+      ],
+    );
+  }
+}
 
 class _ModuleBandPainter extends CustomPainter {
   final Map<String, Rect> bands;

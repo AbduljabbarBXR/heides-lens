@@ -165,7 +165,7 @@ void main() {
 
       await tester.pumpAndSettle(const Duration(seconds: 2));
       
-      expect(find.text('Neural Graph'), findsOneWidget);
+      expect(find.text('Neural Mesh'), findsOneWidget);
     });
   });
 
