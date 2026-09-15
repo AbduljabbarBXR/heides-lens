@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spikey/core/onboarding/logo_picker_screen.dart';
-import 'package:spikey/shared/themes/app_theme.dart';
+import 'package:heides_lens/core/onboarding/logo_picker_screen.dart';
+import 'package:heides_lens/shared/themes/app_theme.dart';
 
 void main() {
   setUp(() async {

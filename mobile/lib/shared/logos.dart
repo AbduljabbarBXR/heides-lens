@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 /// Heides Lens logo variants — minimal geometric icons + wordmark.
 /// Inspired by Pi's clean, rounded identity.
 
-class SpikeyLogo {
+class HeidesLogo {
   final int id;
   final String name;
   final Color accent;
   final Widget Function(double size) builder;
 
-  const SpikeyLogo({
+  const HeidesLogo({
     required this.id,
     required this.name,
     required this.accent,
@@ -18,32 +18,32 @@ class SpikeyLogo {
   });
 }
 
-const List<SpikeyLogo> spikeyLogos = [
-  SpikeyLogo(
+const List<HeidesLogo> heidesLogos = [
+  HeidesLogo(
     id: 1,
     name: 'Spark',
     accent: Color(0xFF7C5CFF),
     builder: _sparkLogo,
   ),
-  SpikeyLogo(
+  HeidesLogo(
     id: 2,
     name: 'Node',
     accent: Color(0xFF2DD4BF),
     builder: _nodeLogo,
   ),
-  SpikeyLogo(
+  HeidesLogo(
     id: 3,
     name: 'Bolt',
     accent: Color(0xFFF59E0B),
     builder: _boltLogo,
   ),
-  SpikeyLogo(
+  HeidesLogo(
     id: 4,
     name: 'Signal',
     accent: Color(0xFF38BDF8),
     builder: _signalLogo,
   ),
-  SpikeyLogo(
+  HeidesLogo(
     id: 5,
     name: 'Hex',
     accent: Color(0xFFF472B6),
@@ -51,15 +51,15 @@ const List<SpikeyLogo> spikeyLogos = [
   ),
 ];
 
-SpikeyLogo logoById(int id) =>
-    spikeyLogos.firstWhere((l) => l.id == id, orElse: () => spikeyLogos.first);
+HeidesLogo logoById(int id) =>
+    heidesLogos.firstWhere((l) => l.id == id, orElse: () => heidesLogos.first);
 
 /// Icon-only mark for compact surfaces (top bar, activity bar).
-class SpikeyLogoMark extends StatelessWidget {
+class HeidesLogoMark extends StatelessWidget {
   final int id;
   final double size;
 
-  const SpikeyLogoMark({super.key, required this.id, this.size = 20});
+  const HeidesLogoMark({super.key, required this.id, this.size = 20});
 
   @override
   Widget build(BuildContext context) {
@@ -68,13 +68,13 @@ class SpikeyLogoMark extends StatelessWidget {
 }
 
 /// Full logo: mark + wordmark.
-class SpikeyLogoFull extends StatelessWidget {
+class HeidesLogoFull extends StatelessWidget {
   final int id;
   final double markSize;
   final double fontSize;
   final Color textColor;
 
-  const SpikeyLogoFull({
+  const HeidesLogoFull({
     super.key,
     required this.id,
     this.markSize = 28,
@@ -87,7 +87,7 @@ class SpikeyLogoFull extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SpikeyLogoMark(id: id, size: markSize),
+        HeidesLogoMark(id: id, size: markSize),
         const SizedBox(width: 10),
         Text(
           'Heides Lens',

@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spikey/shared/themes/app_colors.dart';
-import 'package:spikey/shared/logos.dart';
-import 'package:spikey/core/services/heides_service.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
+import 'package:heides_lens/shared/logos.dart';
+import 'package:heides_lens/core/services/heides_service.dart';
 
 enum InstallState { checking, missing, installing, installed, failed }
 
@@ -135,7 +135,7 @@ class _HeidesSetupScreenState extends State<HeidesSetupScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SpikeyLogoMark(id: _logoId, size: 72),
+                HeidesLogoMark(id: _logoId, size: 72),
                 const SizedBox(height: 20),
                 const Text(
                   'Heides Lens',

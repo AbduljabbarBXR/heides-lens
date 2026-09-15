@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spikey/core/services/heides_service.dart';
+import 'package:heides_lens/core/services/heides_service.dart';
 
 void main() {
   test('HeidesService finds the binary and speaks MCP', () async {

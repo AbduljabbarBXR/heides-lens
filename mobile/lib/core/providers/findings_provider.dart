@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:spikey/core/providers/indexing_provider.dart';
+import 'package:heides_lens/core/providers/indexing_provider.dart';
 
 final findingsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, projectPath) async {
   final engine = ref.read(indexingEngineProvider);

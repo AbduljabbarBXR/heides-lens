@@ -2,8 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/vs2015.dart';
-import 'package:spikey/shared/themes/app_colors.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
 
+/// Read-only source viewer. Heides Lens is a lens, not an editor — the user
+/// applies changes in their own editor; this widget only displays content.
 class FileContentViewer extends StatefulWidget {
   final String filePath;
   final String? diffContent;
@@ -15,79 +17,23 @@ class FileContentViewer extends StatefulWidget {
 }
 
 class _FileContentViewerState extends State<FileContentViewer> {
-  bool _isEditing = false;
-  late TextEditingController _controller;
   String _content = '';
   bool _isLoading = true;
-  bool _hasUnsavedChanges = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController();
-    _loadContent();
-  }
 
   @override
   void didUpdateWidget(covariant FileContentViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.filePath != widget.filePath) {
-      if (_hasUnsavedChanges) {
-        _showUnsavedDialog();
-      } else {
-        _loadContent();
-      }
+    if (oldWidget.filePath != widget.filePath || oldWidget.diffContent != widget.diffContent) {
+      _loadContent();
     }
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _showUnsavedDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Unsaved Changes', style: TextStyle(color: AppColors.textPrimary)),
-        content: const Text('You have unsaved changes. Discard them?', style: TextStyle(color: AppColors.textSecondary)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _loadContent();
-            },
-            child: const Text('Discard', style: TextStyle(color: AppColors.error)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _saveFile().then((_) => _loadContent());
-            },
-            child: const Text('Save', style: TextStyle(color: AppColors.success)),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _loadContent() async {
-    setState(() {
-      _isLoading = true;
-      _isEditing = false;
-      _hasUnsavedChanges = false;
-    });
+    setState(() => _isLoading = true);
     try {
       if (widget.diffContent != null) {
         setState(() {
           _content = widget.diffContent!;
-          _controller.text = _content;
           _isLoading = false;
         });
       } else {
@@ -95,49 +41,14 @@ class _FileContentViewerState extends State<FileContentViewer> {
         final content = await file.readAsString();
         setState(() {
           _content = content;
-          _controller.text = content;
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
         _content = 'Error loading file: $e';
-        _controller.text = _content;
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _saveFile() async {
-    try {
-      final file = File(widget.filePath);
-      await file.writeAsString(_controller.text);
-      if (mounted) {
-        setState(() {
-          _content = _controller.text;
-          _isEditing = false;
-          _hasUnsavedChanges = false;
-        });
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Saved ${widget.filePath.split('/').last}'),
-            backgroundColor: AppColors.surface,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving: $e'),
-            backgroundColor: AppColors.surface,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
     }
   }
 
@@ -161,56 +72,30 @@ class _FileContentViewerState extends State<FileContentViewer> {
               Expanded(
                 child: Text(
                   widget.filePath.split('/').last,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: _hasUnsavedChanges ? AppColors.warning : AppColors.textPrimary,
+                    color: AppColors.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (_hasUnsavedChanges)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(color: AppColors.warning, shape: BoxShape.circle),
-                  ),
-                ),
               Text(
                 '${lines.length} lines',
                 style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
               ),
               const SizedBox(width: 8),
-              if (!_isEditing)
-                IconButton(
-                  icon: const Icon(Icons.edit_rounded, size: 16, color: AppColors.textSecondary),
-                  onPressed: () => setState(() => _isEditing = true),
-                  tooltip: 'Edit (Ctrl+E)',
-                )
-              else ...[
-                IconButton(
-                  icon: const Icon(Icons.save_rounded, size: 16, color: AppColors.success),
-                  onPressed: _saveFile,
-                  tooltip: 'Save (Ctrl+S)',
+              const Tooltip(
+                message: 'Read-only — edit in your own editor',
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(Icons.lock_outline_rounded, size: 14, color: AppColors.textMuted),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.cancel_rounded, size: 16, color: AppColors.error),
-                  onPressed: () {
-                    setState(() {
-                      _isEditing = false;
-                      _controller.text = _content;
-                      _hasUnsavedChanges = false;
-                    });
-                  },
-                  tooltip: 'Cancel (Esc)',
-                ),
-              ],
+              ),
             ],
           ),
         ),
-        // Cursor position bar
+        // Language bar
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
           decoration: const BoxDecoration(
@@ -224,16 +109,15 @@ class _FileContentViewerState extends State<FileContentViewer> {
                 style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
               ),
               const SizedBox(width: 16),
-              Text(
+              const Text(
                 'UTF-8',
-                style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 10, color: AppColors.textMuted),
               ),
               const Spacer(),
-              if (_isEditing)
-                Text(
-                  'Editing',
-                  style: TextStyle(fontSize: 10, color: AppColors.warning),
-                ),
+              const Text(
+                'read-only',
+                style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+              ),
             ],
           ),
         ),
@@ -241,33 +125,16 @@ class _FileContentViewerState extends State<FileContentViewer> {
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-              : _isEditing
-                  ? TextField(
-                      controller: _controller,
-                      maxLines: null,
-                      expands: true,
-                      onChanged: (value) {
-                        if (value != _content) {
-                          setState(() => _hasUnsavedChanges = true);
-                        }
-                      },
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.all(16),
-                      ),
-                      keyboardType: TextInputType.multiline,
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: HighlightView(
-                        _content,
-                        language: _getLanguage(widget.filePath),
-                        theme: vs2015Theme,
-                        padding: EdgeInsets.zero,
-                        textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                      ),
-                    ),
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: HighlightView(
+                    _content,
+                    language: _getLanguage(widget.filePath),
+                    theme: vs2015Theme,
+                    padding: EdgeInsets.zero,
+                    textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                ),
         ),
       ],
     );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:spikey/shared/themes/app_theme.dart';
-import 'package:spikey/core/app_shell.dart';
+import 'package:heides_lens/shared/themes/app_theme.dart';
+import 'package:heides_lens/core/app_shell.dart';
 import 'package:window_manager/window_manager.dart';
 import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -22,11 +22,11 @@ void main() async {
     await windowManager.focus();
   }
 
-  runApp(const ProviderScope(child: SpikeyApp()));
+  runApp(const ProviderScope(child: HeidesLensApp()));
 }
 
-class SpikeyApp extends ConsumerWidget {
-  const SpikeyApp({super.key});
+class HeidesLensApp extends ConsumerWidget {
+  const HeidesLensApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

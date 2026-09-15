@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:spikey/shared/themes/app_colors.dart';
-import 'package:spikey/core/providers/project_provider.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
+import 'package:heides_lens/core/providers/project_provider.dart';
 
 class FileTreeViewer extends ConsumerWidget {
   final String projectPath;

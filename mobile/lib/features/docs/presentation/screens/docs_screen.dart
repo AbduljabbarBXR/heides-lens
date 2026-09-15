@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:spikey/shared/themes/app_colors.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
 
 class DocsSection {
   final String title;
@@ -21,9 +21,9 @@ const List<DocsSection> docsSections = [
     subtitle: 'First launch experience',
     image: 'assets/images/screens/welcome.png',
     bullets: [
-      'Interactive tour of the four core capabilities',
-      'Quick links to documentation, repository, and marketplace',
-      'Open a project to start analyzing your codebase',
+      'Interactive tour of the core capabilities',
+      'Detects the HEIDES engine and offers to install it if missing',
+      'Open a project to start exploring your codebase',
     ],
   ),
   DocsSection(
@@ -33,17 +33,17 @@ const List<DocsSection> docsSections = [
     bullets: [
       'Language-aware file tree with colored icons',
       'Open any file to view it with breadcrumb navigation',
-      'Open/close with the Explorer icon or Ctrl+1',
+      'Open/close with the Explorer icon or Ctrl+2',
     ],
   ),
   DocsSection(
-    title: 'Plan',
-    subtitle: 'Architecture scaffolding',
-    image: 'assets/images/screens/plan.png',
+    title: 'HEIDES Engine',
+    subtitle: 'The code nervous system',
+    image: 'assets/images/screens/graph.png',
     bullets: [
-      'Describe a feature and generate an architecture scaffold',
-      'Covers edge cases, error handling, and design patterns',
-      'Creates real project files from the scaffold',
+      'A small local binary — no account, no cloud',
+      'Speaks MCP: spine.query, spine.neighbors, harmony.check, grounding.plan',
+      'When absent, Heides Lens falls back to its built-in read-only index',
     ],
   ),
   DocsSection(
@@ -75,16 +75,6 @@ const List<DocsSection> docsSections = [
       'Critical, warning, and info findings from static analysis',
       'Click a finding to preview the exact file and line',
       'Suggestions inline with every finding',
-    ],
-  ),
-  DocsSection(
-    title: 'Plugins',
-    subtitle: 'Extend Heides Lens',
-    image: 'assets/images/screens/plugins.png',
-    bullets: [
-      'Browse the marketplace with live search and categories',
-      'Install plugins with one click',
-      'Sandboxed execution model with permissions',
     ],
   ),
   DocsSection(

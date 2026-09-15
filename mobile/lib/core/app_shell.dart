@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:spikey/shared/themes/app_colors.dart';
-import 'package:spikey/shared/logos.dart';
-import 'package:spikey/core/onboarding/logo_picker_screen.dart';
-import 'package:spikey/core/onboarding/heides_setup_screen.dart';
-import 'package:spikey/core/providers/navigation_provider.dart';
-import 'package:spikey/core/providers/project_provider.dart';
-import 'package:spikey/core/providers/indexing_provider.dart';
-import 'package:spikey/core/providers/findings_provider.dart';
-import 'package:spikey/core/providers/notifications_provider.dart';
-import 'package:spikey/core/onboarding/onboarding_overlay.dart';
-import 'package:spikey/features/home/presentation/screens/home_screen.dart';
-import 'package:spikey/features/workflow/presentation/screens/workflow_screen.dart';
-import 'package:spikey/features/graph/presentation/screens/graph_screen.dart';
-import 'package:spikey/features/review/presentation/screens/review_screen.dart';
-import 'package:spikey/features/plugins/presentation/screens/plugins_screen.dart';
-import 'package:spikey/features/file_tree/presentation/widgets/file_tree_viewer.dart';
-import 'package:spikey/features/file_viewer/presentation/widgets/file_content_viewer.dart';
-import 'package:spikey/features/settings/presentation/screens/settings_screen.dart';
-import 'package:spikey/features/docs/presentation/screens/docs_screen.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
+import 'package:heides_lens/shared/logos.dart';
+import 'package:heides_lens/core/onboarding/logo_picker_screen.dart';
+import 'package:heides_lens/core/onboarding/heides_setup_screen.dart';
+import 'package:heides_lens/core/providers/navigation_provider.dart';
+import 'package:heides_lens/core/providers/project_provider.dart';
+import 'package:heides_lens/core/providers/indexing_provider.dart';
+import 'package:heides_lens/core/providers/findings_provider.dart';
+import 'package:heides_lens/core/providers/notifications_provider.dart';
+import 'package:heides_lens/core/onboarding/onboarding_overlay.dart';
+import 'package:heides_lens/core/services/graph_analysis.dart';
+import 'package:heides_lens/features/home/presentation/screens/home_screen.dart';
+import 'package:heides_lens/features/workflow/presentation/screens/workflow_screen.dart';
+import 'package:heides_lens/features/graph/presentation/screens/graph_screen.dart';
+import 'package:heides_lens/features/review/presentation/screens/review_screen.dart';
+import 'package:heides_lens/features/file_tree/presentation/widgets/file_tree_viewer.dart';
+import 'package:heides_lens/features/file_viewer/presentation/widgets/file_content_viewer.dart';
+import 'package:heides_lens/features/settings/presentation/screens/settings_screen.dart';
+import 'package:heides_lens/features/docs/presentation/screens/docs_screen.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
@@ -53,6 +53,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.initState();
     _checkOnboarding();
   }
+
+  String? _lastPreloadedPath;
 
   @override
   void dispose() {
@@ -90,36 +92,12 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   /// Number of files that participate in dependency cycles (graph badge).
+  /// Uses the same Tarjan SCC analysis as the Neural Graph screen, so the
+  /// badge count can never disagree with what the Cycles facet highlights.
   int _countCycles(List<dynamic> files, List<dynamic> edges) {
-    final adj = <String, List<String>>{};
-    for (final f in files) {
-      adj[(f as dynamic).path as String] = [];
-    }
-    for (final e in edges) {
-      final m = e as Map;
-      final from = m['from'] as String;
-      final to = m['to'] as String;
-      if (adj.containsKey(from) && adj.containsKey(to)) adj[from]!.add(to);
-    }
-    final visited = <String, int>{};
-    final stack = <String>{};
-    var cycleCount = 0;
-
-    void dfs(String v) {
-      visited[v] = 1;
-      stack.add(v);
-      for (final w in adj[v] ?? const <String>[]) {
-        if (stack.contains(w)) cycleCount++;
-        if (!visited.containsKey(w)) dfs(w);
-      }
-      stack.remove(v);
-    }
-
-    for (final f in files) {
-      final path = (f as dynamic).path as String;
-      if (!visited.containsKey(path)) dfs(path);
-    }
-    return cycleCount;
+    final paths = files.map((f) => (f as dynamic).path as String).toSet();
+    final analysis = GraphAnalysis.analyzePaths(paths, edges.cast<Map<String, dynamic>>());
+    return analysis.cyclePaths.length;
   }
 
   /// Preload graph + review data in the background so the screens are
@@ -156,21 +134,25 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     try {
       final engine = ref.read(indexingEngineProvider);
-      // Simulate progress while indexing happens
-      for (int i = 0; i <= 90; i += 10) {
-        await Future.delayed(const Duration(milliseconds: 150));
-        if (mounted) {
+      // Real progress: the engine reports files as it indexes them. The
+      // status line reflects the phase the bulk of work is in.
+      await engine.indexProject(
+        project.path,
+        onProgress: (current, total) {
+          if (!mounted) return;
+          final fraction = total > 0 ? current / total : 0.0;
           setState(() {
-            _indexingProgress = i / 100;
-            if (i < 30) _indexingStatus = 'Scanning files...';
-            else if (i < 60) _indexingStatus = 'Indexing symbols...';
-            else if (i < 90) _indexingStatus = 'Building dependencies...';
-            else _indexingStatus = 'Almost done...';
+            _indexingProgress = fraction;
+            if (fraction < 0.2) {
+              _indexingStatus = 'Scanning files...';
+            } else if (fraction < 0.7) {
+              _indexingStatus = 'Indexing symbols...';
+            } else {
+              _indexingStatus = 'Building dependencies...';
+            }
           });
-        }
-      }
-      // Actually index the project
-      await engine.indexProject(project.path);
+        },
+      );
       if (mounted) {
         setState(() {
           _indexingProgress = 1.0;
@@ -211,9 +193,6 @@ class _AppShellState extends ConsumerState<AppShell> {
         case LogicalKeyboardKey.digit5:
           ref.read(navigationProvider.notifier).setMode(AppMode.review);
           ref.read(notificationsProvider.notifier).markSeen('review');
-        case LogicalKeyboardKey.digit6:
-          ref.read(navigationProvider.notifier).setMode(AppMode.plugins);
-          ref.read(notificationsProvider.notifier).markSeen('plugins');
         case LogicalKeyboardKey.keyP:
           _showProjectSelector();
         case LogicalKeyboardKey.comma:
@@ -234,6 +213,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     final projectState = ref.watch(projectProvider);
     final notificationBadges = ref.watch(notificationsProvider);
     final isExplorer = navState.currentMode == AppMode.explorer;
+
+    if (projectState.activeProject != null &&
+        projectState.activeProject!.path != _lastPreloadedPath) {
+      _lastPreloadedPath = projectState.activeProject!.path;
+      _preloadData(projectState.activeProject!.path);
+    }
 
     // Show logo picker on first launch
     if (_showLogoPicker && _onboardingChecked) {
@@ -401,17 +386,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                             ref.read(notificationsProvider.notifier).markSeen('review');
                           },
                         ),
-                        const SizedBox(height: 4),
-                        _ActivityIconButton(
-                          icon: Icons.extension_rounded,
-                          tooltip: 'Plugins (Ctrl+6)',
-                          isActive: navState.currentMode == AppMode.plugins,
-                          badge: notificationBadges.plugins,
-                          onTap: () {
-                            ref.read(navigationProvider.notifier).setMode(AppMode.plugins);
-                            ref.read(notificationsProvider.notifier).markSeen('plugins');
-                          },
-                        ),
                         const Spacer(),
                         Column(
                           children: [
@@ -496,7 +470,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   Widget _buildLogoMark() {
-    return SpikeyLogoMark(id: _logoChoice, size: 22);
+    return HeidesLogoMark(id: _logoChoice, size: 22);
   }
 
   Widget _buildModeContent(AppMode mode, dynamic activeProject) {
@@ -534,8 +508,6 @@ class _AppShellState extends ConsumerState<AppShell> {
         return const GraphScreen(key: ValueKey('graph'));
       case AppMode.review:
         return const ReviewScreen(key: ValueKey('review'));
-      case AppMode.plugins:
-        return const PluginsScreen(key: ValueKey('plugins'));
     }
   }
 
@@ -663,10 +635,6 @@ class _AppShellState extends ConsumerState<AppShell> {
             }
           },
           child: const Text('Show Welcome'),
-        ),
-        PopupMenuItem(
-          onTap: () {},
-          child: const Text('Keyboard Shortcuts'),
         ),
       ],
     );

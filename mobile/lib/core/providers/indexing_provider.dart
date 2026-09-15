@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:spikey/data/services/indexing_engine.dart';
+import 'package:heides_lens/data/services/indexing_engine.dart';
 
 final indexingEngineProvider = Provider<IndexingEngine>((ref) {
   return IndexingEngine();

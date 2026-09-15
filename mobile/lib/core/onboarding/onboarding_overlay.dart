@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:spikey/shared/themes/app_colors.dart';
-import 'package:spikey/shared/logos.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
+import 'package:heides_lens/shared/logos.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingOverlay extends StatefulWidget {
@@ -45,11 +45,11 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
       mockContent: _ReviewMock(),
     ),
     _OnboardingStep(
-      icon: Icons.extension_rounded,
-      title: 'Extend With Plugins',
-      subtitle: 'Install plugins for extra analysis. Security scanning, performance checks, custom rules — all from the marketplace.',
+      icon: Icons.shield_rounded,
+      title: 'Local & Private',
+      subtitle: 'HEIDES runs as one small binary on your machine — no account, no cloud. Graph facts and findings stay where your code is.',
       color: Color(0xFFEF4444),
-      mockContent: _PluginsMock(),
+      mockContent: _HeidesMock(),
     ),
   ];
 
@@ -181,7 +181,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
                         const SizedBox(height: 48),
 
                         // Chosen logo
-                        SpikeyLogoFull(id: logoId, markSize: 40, fontSize: 26),
+                        HeidesLogoFull(id: logoId, markSize: 40, fontSize: 26),
                         const SizedBox(height: 24),
 
                         // Icon
@@ -307,7 +307,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
             ),
           ),
 
-          // Spikey logo (top left)
+          // Heides Lens logo (top left)
           Positioned(
             top: 24,
             left: 24,
@@ -324,7 +324,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
                 ),
                 const SizedBox(width: 10),
                 const Text(
-                  'Spikey',
+                  'Heides Lens',
                   style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ],
@@ -545,8 +545,8 @@ class _ReviewMock extends StatelessWidget {
   }
 }
 
-class _PluginsMock extends StatelessWidget {
-  const _PluginsMock();
+class _HeidesMock extends StatelessWidget {
+  const _HeidesMock();
 
   @override
   Widget build(BuildContext context) {
@@ -554,17 +554,19 @@ class _PluginsMock extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          _pluginCard('Security Scanner', 'Detects vulnerabilities', true),
+          _row(Icons.memory_rounded, 'HEIDES engine', 'running locally', true, Color(0xFF10B981)),
           const SizedBox(height: 8),
-          _pluginCard('Performance Analyzer', 'Finds bottlenecks', false),
+          _row(Icons.account_tree_rounded, 'spine.describe', 'workspace graph', true, Color(0xFF10B981)),
           const SizedBox(height: 8),
-          _pluginCard('Type Checker', 'Validates type safety', true),
+          _row(Icons.verified_rounded, 'harmony.report', 'deterministic findings', true, Color(0xFF10B981)),
+          const SizedBox(height: 8),
+          _row(Icons.cloud_off_rounded, 'cloud sync', 'not required', false, AppColors.textMuted),
         ],
       ),
     );
   }
 
-  Widget _pluginCard(String name, String desc, bool installed) {
+  Widget _row(IconData icon, String name, String status, bool ok, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -573,40 +575,14 @@ class _PluginsMock extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.extension, color: AppColors.primary, size: 16),
-          ),
+          Icon(icon, color: color, size: 16),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                Text(desc, style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
-              ],
-            ),
+            child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: installed ? Color(0xFF10B981).withOpacity(0.15) : Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              installed ? 'Installed' : 'Install',
-              style: TextStyle(
-                color: installed ? Color(0xFF10B981) : AppColors.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
+          Text(status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w500)),
+          const SizedBox(width: 8),
+          Icon(ok ? Icons.check_circle_rounded : Icons.remove_circle_outline, color: color, size: 14),
         ],
       ),
     );

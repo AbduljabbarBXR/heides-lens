@@ -44,7 +44,6 @@ class SettingsNotifier extends StateNotifier<AppConfig> {
     'kimi': 'KIMI_API_KEY',
     'minimax': 'MINIMAX_API_KEY',
     'huggingface': 'HUGGINGFACE_API_KEY',
-    'opencode': 'OPENCODE_API_KEY',
   };
 
   String? _envApiKey(String provider) {
@@ -132,19 +131,6 @@ class SettingsNotifier extends StateNotifier<AppConfig> {
         ];
       case 'gemini':
         return ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'];
-      case 'opencode':
-        return [
-          'opencode-go/kimi-k3',
-          'opencode-go/deepseek-v4-pro',
-          'opencode-go/deepseek-v4-flash',
-          'opencode-go/qwen3.7-max',
-          'opencode-go/qwen3.7-plus',
-          'opencode-go/glm-5.2',
-          'opencode-go/minimax-m3',
-          'opencode-go/mimo-v2.5-free',
-          'opencode-go/nemotron-3-ultra-free',
-          'opencode-go/nemotron-3.5-lightning-free',
-        ];
       default:
         return ['default'];
     }

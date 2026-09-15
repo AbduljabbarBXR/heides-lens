@@ -85,8 +85,8 @@ class LLMService {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $apiKey',
-        'HTTP-Referer': 'https://spikey.dev',
-        'X-Title': 'Spikey',
+        'HTTP-Referer': 'https://github.com/AbduljabbarBXR/heides',
+        'X-Title': 'Heides Lens',
       },
       body: jsonEncode({
         'model': model,

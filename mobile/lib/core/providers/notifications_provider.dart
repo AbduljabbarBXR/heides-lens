@@ -6,21 +6,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 class NotificationBadges {
   final int review;
   final int graph;
-  final int plugins;
 
   const NotificationBadges({
     this.review = 0,
     this.graph = 0,
-    this.plugins = 0,
   });
 
-  int get total => review + graph + plugins;
+  int get total => review + graph;
 
-  NotificationBadges copyWith({int? review, int? graph, int? plugins}) {
+  NotificationBadges copyWith({int? review, int? graph}) {
     return NotificationBadges(
       review: review ?? this.review,
       graph: graph ?? this.graph,
-      plugins: plugins ?? this.plugins,
     );
   }
 }
@@ -36,8 +33,8 @@ class NotificationNotifier extends StateNotifier<NotificationBadges> {
 
   static const _seenKey = 'seen_notifications';
 
-  Map<String, int> _seen = {'review': 0, 'graph': 0, 'plugins': 0};
-  Map<String, int> _live = {'review': 0, 'graph': 0, 'plugins': 0};
+  Map<String, int> _seen = {'review': 0, 'graph': 0};
+  Map<String, int> _live = {'review': 0, 'graph': 0};
 
   Future<void> _loadSeen() async {
     try {
@@ -64,7 +61,6 @@ class NotificationNotifier extends StateNotifier<NotificationBadges> {
     state = NotificationBadges(
       review: (_live['review']! - (_seen['review'] ?? 0)).clamp(0, 1 << 30),
       graph: (_live['graph']! - (_seen['graph'] ?? 0)).clamp(0, 1 << 30),
-      plugins: (_live['plugins']! - (_seen['plugins'] ?? 0)).clamp(0, 1 << 30),
     );
   }
 

@@ -34,7 +34,7 @@ class IndexDatabase {
       path = overridePath!;
     } else {
       final dir = await getApplicationSupportDirectory();
-      path = p.join(dir.path, 'spikey_index.db');
+      path = p.join(dir.path, 'heides_index.db');
     }
     return await openDatabase(
       path,
@@ -462,18 +462,18 @@ class IndexingEngine {
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
       if (line.contains("eval(")) {
-        findings.add({'severity': 'critical', 'category': 'security', 'title': 'Use of eval()', 'description': 'eval() executes arbitrary code', 'line': i + 1, 'suggestion': 'Avoid eval()', 'source': 'static', 'plugin_id': 'com.spikey.security-scanner'});
+        findings.add({'severity': 'critical', 'category': 'security', 'title': 'Use of eval()', 'description': 'eval() executes arbitrary code', 'line': i + 1, 'suggestion': 'Avoid eval()', 'source': 'static', 'plugin_id': 'com.heides.security-scanner'});
       }
       if (line.contains("innerHTML")) {
-        findings.add({'severity': 'warning', 'category': 'security', 'title': 'innerHTML assignment', 'description': 'Direct innerHTML can lead to XSS', 'line': i + 1, 'suggestion': 'Use textContent or sanitize HTML', 'source': 'static', 'plugin_id': 'com.spikey.security-scanner'});
+        findings.add({'severity': 'warning', 'category': 'security', 'title': 'innerHTML assignment', 'description': 'Direct innerHTML can lead to XSS', 'line': i + 1, 'suggestion': 'Use textContent or sanitize HTML', 'source': 'static', 'plugin_id': 'com.heides.security-scanner'});
       }
       final passwordPattern = RegExp("""password\s*=\s*['"]""");
       final passwordMatch = passwordPattern.firstMatch(line);
       if (passwordMatch != null) {
-        findings.add({'severity': 'critical', 'category': 'security', 'title': 'Hardcoded password', 'description': 'Hardcoded credentials should not be committed', 'line': i + 1, 'suggestion': 'Move credentials to environment variables', 'source': 'static', 'plugin_id': 'com.spikey.security-scanner'});
+        findings.add({'severity': 'critical', 'category': 'security', 'title': 'Hardcoded password', 'description': 'Hardcoded credentials should not be committed', 'line': i + 1, 'suggestion': 'Move credentials to environment variables', 'source': 'static', 'plugin_id': 'com.heides.security-scanner'});
       }
       if (line.contains("new Function(")) {
-        findings.add({'severity': 'warning', 'category': 'security', 'title': 'Dynamic function creation', 'description': 'new Function() can execute arbitrary code', 'line': i + 1, 'suggestion': 'Avoid dynamic function creation', 'source': 'static', 'plugin_id': 'com.spikey.security-scanner'});
+        findings.add({'severity': 'warning', 'category': 'security', 'title': 'Dynamic function creation', 'description': 'new Function() can execute arbitrary code', 'line': i + 1, 'suggestion': 'Avoid dynamic function creation', 'source': 'static', 'plugin_id': 'com.heides.security-scanner'});
       }
     }
     return findings;

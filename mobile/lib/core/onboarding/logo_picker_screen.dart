@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spikey/shared/themes/app_colors.dart';
-import 'package:spikey/shared/logos.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
+import 'package:heides_lens/shared/logos.dart';
 
 class LogoPickerScreen extends StatefulWidget {
   final VoidCallback onComplete;
@@ -53,7 +53,7 @@ class _LogoPickerScreenState extends State<LogoPickerScreen> {
                 const SizedBox(height: 48),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: spikeyLogos.map((logo) {
+                  children: heidesLogos.map((logo) {
                     final isSelected = _selectedId == logo.id;
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -80,7 +80,7 @@ class _LogoPickerScreenState extends State<LogoPickerScreen> {
 }
 
 class _LogoOptionCard extends StatefulWidget {
-  final SpikeyLogo logo;
+  final HeidesLogo logo;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -149,7 +149,7 @@ class _LogoOptionCardState extends State<_LogoOptionCard> {
               ),
               const SizedBox(height: 20),
               // Logo preview (mark + wordmark stacked)
-              SpikeyLogoMark(id: widget.logo.id, size: 48),
+              HeidesLogoMark(id: widget.logo.id, size: 48),
               const SizedBox(height: 12),
               const Text(
                 'Heides Lens',

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:spikey/shared/themes/app_colors.dart';
-import 'package:spikey/core/providers/settings_provider.dart';
-import 'package:spikey/core/providers/project_provider.dart';
-import 'package:spikey/core/providers/heides_provider.dart';
-import 'package:spikey/core/services/llm_service.dart';
-import 'package:spikey/core/services/spikey_system_prompt.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
+import 'package:heides_lens/core/providers/settings_provider.dart';
+import 'package:heides_lens/core/providers/project_provider.dart';
+import 'package:heides_lens/core/providers/heides_provider.dart';
+import 'package:heides_lens/core/services/llm_service.dart';
+import 'package:heides_lens/core/services/heides_lens_prompt.dart';
 
 class WorkflowScreen extends ConsumerStatefulWidget {
   const WorkflowScreen({super.key});
@@ -125,8 +125,8 @@ class _WorkflowScreenState extends ConsumerState<WorkflowScreen> {
 
     final project = ref.read(projectProvider).activeProject;
 
-    // Build the Spikey system prompt (HEIDES-aware)
-    final systemPromptText = SpikeySystemPrompt.build(
+    // Build the Heides Lens system prompt (HEIDES-aware)
+    final systemPromptText = HeidesLensPrompt.build(
       projectName: project?.name ?? 'No project',
       projectPath: project?.path,
       heidesManifest: _heidesManifest,

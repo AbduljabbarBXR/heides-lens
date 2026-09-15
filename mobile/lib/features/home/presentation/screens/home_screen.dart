@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:spikey/shared/themes/app_colors.dart';
-import 'package:spikey/shared/logos.dart';
-import 'package:spikey/core/providers/project_provider.dart';
-import 'package:spikey/core/providers/findings_provider.dart';
-import 'package:spikey/core/providers/heides_provider.dart';
-import 'package:spikey/core/providers/indexing_provider.dart';
-import 'package:spikey/core/providers/navigation_provider.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
+import 'package:heides_lens/shared/logos.dart';
+import 'package:heides_lens/core/providers/project_provider.dart';
+import 'package:heides_lens/core/providers/findings_provider.dart';
+import 'package:heides_lens/core/providers/heides_provider.dart';
+import 'package:heides_lens/core/providers/indexing_provider.dart';
+import 'package:heides_lens/core/providers/navigation_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -75,7 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SpikeyLogoMark(id: 2, size: 72),
+          HeidesLogoMark(id: 2, size: 72),
           const SizedBox(height: 20),
           const Text(
             'The nervous system for your code, with eyes.',
@@ -152,19 +152,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Compact integer formatting for LOC (1.2k, 34k).
+  String _formatLoc(int loc) {
+    if (loc >= 1000000) return '${(loc / 1000000).toStringAsFixed(1)}M';
+    if (loc >= 1000) return '${(loc / 1000).toStringAsFixed(1)}k';
+    return '$loc';
+  }
+
   Widget _buildProjectCard(Project project) {
-    final filesAsync = ref.watch(indexedFilesProvider(project.path));
-    return _DashboardCard(
+    final filesAsync = ref.watch(indexedFilesProvider(project.path));    return _DashboardCard(
       title: 'Project',
       subtitle: project.path,
       child: filesAsync.when(
         data: (files) {
-          final symbols = files.fold<int>(0, (sum, f) => sum + (f.loc > 0 ? 1 : 0));
+          // Total LOC — a real second metric, not a duplicate of the file count.
+          final loc = files.fold<int>(0, (sum, f) => sum + f.loc);
           return Row(
             children: [
               _Stat(label: '${files.length}', caption: 'files'),
               const SizedBox(width: 24),
-              _Stat(label: '${symbols}', caption: 'indexed'),
+              _Stat(label: _formatLoc(loc), caption: 'lines'),
             ],
           );
         },

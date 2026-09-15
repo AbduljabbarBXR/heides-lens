@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:spikey/core/services/heides_service.dart';
+import 'package:heides_lens/core/services/heides_service.dart';
 
 /// Singleton HEIDES MCP client.
 final heidesServiceProvider = Provider<HeidesService>((ref) {

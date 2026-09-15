@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:spikey/shared/themes/app_colors.dart';
-import 'package:spikey/core/providers/settings_provider.dart';
-import 'package:spikey/core/services/llm_service.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
+import 'package:heides_lens/core/providers/settings_provider.dart';
+import 'package:heides_lens/core/services/llm_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -76,7 +76,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _ProviderChip(label: 'OpenAI', isSelected: config.provider == 'openai', onTap: () => ref.read(settingsProvider.notifier).setProvider('openai')),
                     _ProviderChip(label: 'Anthropic', isSelected: config.provider == 'anthropic', onTap: () => ref.read(settingsProvider.notifier).setProvider('anthropic')),
                     _ProviderChip(label: 'Gemini', isSelected: config.provider == 'gemini', onTap: () => ref.read(settingsProvider.notifier).setProvider('gemini')),
-                    _ProviderChip(label: 'OpenCode', isSelected: config.provider == 'opencode', onTap: () => ref.read(settingsProvider.notifier).setProvider('opencode')),
                     _ProviderChip(label: 'Ollama', isSelected: config.provider == 'ollama', onTap: () => ref.read(settingsProvider.notifier).setProvider('ollama')),
                   ],
                 ),
@@ -231,13 +230,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ];
       case 'gemini':
         return ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'];
-      case 'opencode':
-        return [
-          'opencode-go/kimi-k3', 'opencode-go/deepseek-v4-pro', 'opencode-go/deepseek-v4-flash',
-          'opencode-go/qwen3.7-max', 'opencode-go/qwen3.7-plus', 'opencode-go/glm-5.2',
-          'opencode-go/minimax-m3', 'opencode-go/mimo-v2.5-free', 'opencode-go/nemotron-3-ultra-free',
-          'opencode-go/nemotron-3.5-lightning-free',
-        ];
       default:
         return ['default'];
     }

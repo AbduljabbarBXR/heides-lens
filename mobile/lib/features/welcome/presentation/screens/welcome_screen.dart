@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:spikey/shared/themes/app_colors.dart';
-import 'package:spikey/shared/logos.dart';
-import 'package:spikey/core/providers/project_provider.dart';
-import 'package:spikey/features/docs/presentation/screens/docs_screen.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
+import 'package:heides_lens/shared/logos.dart';
+import 'package:heides_lens/core/providers/project_provider.dart';
+import 'package:heides_lens/features/docs/presentation/screens/docs_screen.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,7 +60,7 @@ class WelcomeScreen extends ConsumerWidget {
               const SizedBox(height: 24),
               Text('The nervous system for your code, with eyes.', style: AppTextStyles.h3),
               const SizedBox(height: 8),
-              Text('Predicts what will break before you deploy.', style: AppTextStyles.body),
+              Text('A read-only lens over the HEIDES graph — explore, query, and inspect your codebase.', style: AppTextStyles.body),
               const SizedBox(height: 24),
               Text('Quick Links', style: AppTextStyles.h3.copyWith(fontSize: 16)),
               const SizedBox(height: 12),
@@ -76,14 +76,8 @@ class WelcomeScreen extends ConsumerWidget {
               const SizedBox(height: 8),
               _LinkRow(
                 icon: Icons.code_rounded,
-                label: 'GitHub Repository',
-                onTap: () => _launchUrl('https://github.com/AbduljabbarBXR/spikey'),
-              ),
-              const SizedBox(height: 8),
-              _LinkRow(
-                icon: Icons.extension_rounded,
-                label: 'Plugin Marketplace',
-                onTap: () => _launchUrl('https://github.com/AbduljabbarBXR/spikey'),
+                label: 'HEIDES on GitHub',
+                onTap: () => _launchUrl('https://github.com/AbduljabbarBXR/heides'),
               ),
               const SizedBox(height: 24),
               Row(
@@ -176,6 +170,6 @@ class _WelcomeLogoState extends State<_WelcomeLogo> {
 
   @override
   Widget build(BuildContext context) {
-    return SpikeyLogoFull(id: _logoId, markSize: 52, fontSize: 30);
+    return HeidesLogoFull(id: _logoId, markSize: 52, fontSize: 30);
   }
 }

@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spikey/core/app_shell.dart';
-import 'package:spikey/core/providers/findings_provider.dart';
-import 'package:spikey/core/providers/heides_provider.dart';
-import 'package:spikey/core/providers/indexing_provider.dart';
-import 'package:spikey/core/providers/navigation_provider.dart';
-import 'package:spikey/core/providers/project_provider.dart';
-import 'package:spikey/core/providers/settings_provider.dart';
-import 'package:spikey/data/services/indexing_engine.dart';
-import 'package:spikey/shared/themes/app_theme.dart';
-import 'package:spikey/features/settings/presentation/screens/settings_screen.dart';
-import 'package:spikey/features/welcome/presentation/screens/welcome_screen.dart';
+import 'package:heides_lens/core/app_shell.dart';
+import 'package:heides_lens/core/providers/findings_provider.dart';
+import 'package:heides_lens/core/providers/heides_provider.dart';
+import 'package:heides_lens/core/providers/indexing_provider.dart';
+import 'package:heides_lens/core/providers/navigation_provider.dart';
+import 'package:heides_lens/core/providers/project_provider.dart';
+import 'package:heides_lens/core/providers/settings_provider.dart';
+import 'package:heides_lens/data/services/indexing_engine.dart';
+import 'package:heides_lens/shared/themes/app_theme.dart';
+import 'package:heides_lens/features/settings/presentation/screens/settings_screen.dart';
+import 'package:heides_lens/features/welcome/presentation/screens/welcome_screen.dart';
 
 /// Generates screenshots of each app section via golden tests.
 /// Run: flutter test test/screenshots --update-goldens
@@ -121,7 +121,7 @@ Future<ProviderContainer> _buildContainer() async {
     heidesManifestProvider.overrideWith((ref, path) async => null),
     heidesFindingsProvider.overrideWith((ref, path) async => null),
     projectProvider.overrideWith((ref) => ProjectNotifier()..addProject(Project(
-          id: '1', name: 'Spikey', path: projectPath, lastOpened: DateTime.now(),
+          id: '1', name: 'Heides Lens', path: projectPath, lastOpened: DateTime.now(),
         ))),
     settingsProvider.overrideWith((ref) => SettingsNotifier()..setApiKey('sk-or-********')),
   ]);
@@ -238,14 +238,6 @@ void main() {
     container.read(navigationProvider.notifier).setMode(AppMode.review);
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
     await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/review.png'));
-  });
-
-  testWidgets('07 - plugins (marketplace)', (tester) async {
-    final container = await _buildContainer();
-    await _pumpApp(tester, container);
-    container.read(navigationProvider.notifier).setMode(AppMode.plugins);
-    await tester.pumpAndSettle(const Duration(milliseconds: 500));
-    await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/plugins.png'));
   });
 
   testWidgets('08 - settings', (tester) async {

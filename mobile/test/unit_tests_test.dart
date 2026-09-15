@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spikey/core/providers/project_provider.dart';
-import 'package:spikey/core/providers/navigation_provider.dart';
-import 'package:spikey/core/providers/indexing_provider.dart';
-import 'package:spikey/features/welcome/presentation/screens/welcome_screen.dart';
-import 'package:spikey/features/graph/presentation/screens/graph_screen.dart';
-import 'package:spikey/features/review/presentation/screens/review_screen.dart';
-import 'package:spikey/features/workflow/presentation/screens/workflow_screen.dart';
-import 'package:spikey/features/plugins/presentation/screens/plugins_screen.dart';
-import 'package:spikey/features/settings/presentation/screens/settings_screen.dart';
+import 'package:heides_lens/core/providers/project_provider.dart';
+import 'package:heides_lens/core/providers/navigation_provider.dart';
+import 'package:heides_lens/core/providers/indexing_provider.dart';
+import 'package:heides_lens/features/welcome/presentation/screens/welcome_screen.dart';
+import 'package:heides_lens/features/graph/presentation/screens/graph_screen.dart';
+import 'package:heides_lens/features/review/presentation/screens/review_screen.dart';
+import 'package:heides_lens/features/workflow/presentation/screens/workflow_screen.dart';
+import 'package:heides_lens/features/settings/presentation/screens/settings_screen.dart';
 
 void main() {
   group('ProjectProvider Tests', () {
@@ -205,24 +204,6 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 1));
       
       expect(find.text('Workflow'), findsOneWidget);
-    });
-  });
-
-  group('PluginsScreen Widget Tests', () {
-    testWidgets('PluginsScreen shows header', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: Scaffold(
-              body: PluginsScreen(),
-            ),
-          ),
-        ),
-      );
-
-      await tester.pumpAndSettle(const Duration(seconds: 1));
-      
-      expect(find.text('Plugins'), findsOneWidget);
     });
   });
 

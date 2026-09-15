@@ -1,11 +1,15 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:spikey/shared/themes/app_colors.dart';
-import 'package:spikey/core/providers/indexing_provider.dart';
-import 'package:spikey/core/providers/project_provider.dart';
-import 'package:spikey/data/services/indexing_engine.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:heides_lens/shared/themes/app_colors.dart';
+import 'package:heides_lens/core/providers/indexing_provider.dart';
+import 'package:heides_lens/core/providers/project_provider.dart';
+import 'package:heides_lens/core/providers/heides_provider.dart';
+import 'package:heides_lens/core/services/graph_analysis.dart';
+import 'package:heides_lens/data/services/indexing_engine.dart';
 
 // Node type colors (matching Supabase schema visualizer pattern)
 const Map<String, Color> nodeTypeColors = {
@@ -63,7 +67,21 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
   Map<String, Offset> _originalPositions = {};
   Map<String, Offset> _clusterTargets = {};
   bool _isClustered = false;
+  String? _clusterAnchor;
   late final AnimationController _clusterController;
+
+  // Set when a card's raw listener sees a pointer-down, so the viewport-wide
+  // background listener (which fires after, innermost-first dispatch) knows
+  // the click was on a card and must not deselect.
+  bool _pointerDownOnCard = false;
+
+  // Focus for keyboard deselect (Escape). Requested on pointer-down so the
+  // graph owns the key event while the user is interacting with the canvas.
+  final FocusNode _graphFocusNode = FocusNode();
+
+  // First-visit interaction hints (persisted dismissal).
+  bool _hintsVisible = false;
+  static const _hintsDismissedKey = 'graph_hints_dismissed';
 
   @override
   void initState() {
@@ -72,25 +90,48 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
       vsync: this,
       duration: const Duration(milliseconds: 350),
     )..addListener(_animateClusterStep);
+    _loadHintsPreference();
+  }
+
+  Future<void> _loadHintsPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() => _hintsVisible = !(prefs.getBool(_hintsDismissedKey) ?? false));
+    }
+  }
+
+  Future<void> _dismissHints() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hintsDismissedKey, true);
+    if (mounted) setState(() => _hintsVisible = false);
+  }
+
+  @override
+  void dispose() {
+    _graphFocusNode.dispose();
+    _clusterController.dispose();
+    _transformController.dispose();
+    super.dispose();
   }
 
   void _animateClusterStep() {
     final t = Curves.easeInOut.transform(_clusterController.value);
     if (!_isClustered) {
-      // Animating back to original layout
-      for (final entry in _clusterTargets.entries) {
-        final from = _nodePositions[entry.key];
+      // Animating back to the original layout. Controller reverses from
+      // value 1 → 0, so t starts at 1 (ring position) and ends at 0
+      // (original position). Lerping from the live position keeps every
+      // interruption (drag, mid-flight re-anchor) continuous.
+      for (final entry in _originalPositions.entries) {
         final to = _originalPositions[entry.key];
-        if (from == null || to == null) continue;
-        _nodePositions[entry.key] = Offset.lerp(from, to, t)!;
+        _nodePositions[entry.key] = Offset.lerp(_nodePositions[entry.key] ?? to, to, t)!;
       }
     } else {
-      // Animating toward the ring
-      for (final entry in _clusterTargets.entries) {
-        final from = _originalPositions[entry.key];
-        final to = _clusterTargets[entry.key];
-        if (from == null || to == null) continue;
-        _nodePositions[entry.key] = Offset.lerp(from, to, t)!;
+      // Animating toward the ring. Iterate originals so re-clustering to a
+      // different card also animates every node from its live position to
+      // the new ring (non-members glide back to their original spot).
+      for (final entry in _originalPositions.entries) {
+        final to = _clusterTargets[entry.key] ?? entry.value;
+        _nodePositions[entry.key] = Offset.lerp(_nodePositions[entry.key] ?? entry.value, to, t)!;
       }
     }
     setState(() {});
@@ -98,14 +139,15 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
 
   /// Build a ring of the selected node + its connected neighbors. Targets are
   /// computed once so re-triggering is smooth.
-  void _buildClusterTargets(String selectedPath, List<Map<String, dynamic>> edges) {
+  void _buildClusterTargets(String selectedPath, List<Map<String, dynamic>> edges,
+      {bool snapshotOriginals = true}) {
     final neighbors = <String>{selectedPath};
     for (final e in edges) {
       if (e['from'] == selectedPath) neighbors.add(e['to'] as String);
       if (e['to'] == selectedPath) neighbors.add(e['from'] as String);
     }
 
-    _originalPositions = Map.of(_nodePositions);
+    if (snapshotOriginals) _originalPositions = Map.of(_nodePositions);
     final selectedPos = _originalPositions[selectedPath];
     if (selectedPos == null) return;
 
@@ -131,23 +173,41 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
   }
 
   void _startCluster(String selectedPath, List<Map<String, dynamic>> edges) {
-    if (_isClustered) return;
-    _buildClusterTargets(selectedPath, edges);
+    if (_isClustered && _clusterAnchor == selectedPath) return;
+    // Only snapshot the layout as "original" when it is genuinely at rest;
+    // a mid-animation snapshot would poison the restore baseline and cards
+    // would never glide back to their real positions.
+    final atRest = !_isClustered && _clusterController.value == 0;
+    _buildClusterTargets(selectedPath, edges, snapshotOriginals: atRest);
     _isClustered = true;
+    _clusterAnchor = selectedPath;
     _clusterController.forward(from: 0);
   }
 
   void _restoreLayout() {
     if (!_isClustered) return;
     _isClustered = false;
+    _clusterAnchor = null;
     _clusterController.reverse();
   }
 
-  @override
-  void dispose() {
-    _clusterController.dispose();
-    _transformController.dispose();
-    super.dispose();
+  /// Viewport-wide background tap: deselects and restores the layout. Sits
+  /// around the InteractiveViewer so clicks in the margins (outside the
+  /// canvas rect) also close. Card clicks set [_pointerDownOnCard] first
+  /// (innermost-first dispatch), so they're skipped here.
+  void _handleGraphPointerDown(PointerDownEvent event) {
+    if (_pointerDownOnCard) {
+      _pointerDownOnCard = false;
+      return;
+    }
+    _graphFocusNode.requestFocus();
+    if (_selectedNode != null || _hoveredNode != null) {
+      setState(() {
+        _selectedNode = null;
+        _hoveredNode = null;
+      });
+      _restoreLayout();
+    }
   }
 
   /// Discrete zoom step around a focal point (viewport center for buttons,
@@ -176,6 +236,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
     final projectState = ref.watch(projectProvider);
     final projectPath = projectState.activeProject?.path ?? '';
     final filesAsync = ref.watch(indexedFilesProvider(projectPath));
+    final heidesAsync = ref.watch(heidesAvailableProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -196,6 +257,16 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                     Icon(Icons.account_tree_rounded, color: AppColors.primary, size: 20),
                     const SizedBox(width: 12),
                     Text('Neural Graph', style: AppTextStyles.h3),
+                    const SizedBox(width: 10),
+                    // Engine source: HEIDES when attached, otherwise the local
+                    // read-only index is a fallback and is labelled as such.
+                    heidesAsync.when(
+                      data: (available) => _EngineChip(heidesAvailable: available),
+                      loading: () => const SizedBox(
+                          width: 14, height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                      error: (_, __) => const _EngineChip(heidesAvailable: false),
+                    ),
                     const Spacer(),
                     // Node count
                     filesAsync.when(
@@ -356,9 +427,10 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                     final projectPath = projectState.activeProject?.path ?? '';
 
                     // Deterministic structural analysis (mirrors HEIDES facts)
-                    final entrySet = _entryPoints(filesList, edges);
-                    final hubSet = _hubPaths(filesList, edges);
-                    final cycleSet = _cyclePaths(filesList, edges);
+                    final analysis = GraphAnalysis.analyze(filesList, edges);
+                    final entrySet = analysis.entryPoints;
+                    final hubSet = analysis.hubs;
+                    final cycleSet = analysis.cyclePaths;
 
                     // Apply type filter, search, and facet
                     final visibleFiles = filesList.where((f) {
@@ -383,16 +455,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                     final visiblePaths = visibleFiles.map((f) => f.path).toSet();
                     final visibleEdges = edges.where((e) =>
                         visiblePaths.contains(e['from']) && visiblePaths.contains(e['to'])).toList();
-
-                    // Calculate canvas size (positions are initialized inside
-                    // the LayoutBuilder where the viewport is known)
-                    double maxX = 0, maxY = 0;
-                    for (final pos in _nodePositions.values) {
-                      if (pos.dx > maxX) maxX = pos.dx;
-                      if (pos.dy > maxY) maxY = pos.dy;
-                    }
-                    final canvasWidth = maxX + 300;
-                    final canvasHeight = maxY + 200;
 
                     // Grid view
                     if (_isGridView) {
@@ -428,16 +490,52 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                           // first pan).
                           _fitToView(initial: true, fitViewport: viewportSize);
                         }
-                        return Stack(
-                      children: [
+
+                        // Compute canvas AFTER initialization so the hit-test
+                        // region covers the full graph from frame 1.
+                        var maxX = 0.0, maxY = 0.0;
+                        for (final pos in _nodePositions.values) {
+                          if (pos.dx > maxX) maxX = pos.dx;
+                          if (pos.dy > maxY) maxY = pos.dy;
+                        }
+                        final canvasWidth = maxX + 300;
+                        final canvasHeight = maxY + 200;
+                        final clusterEdgePaths = _isClustered && _selectedNode != null
+                            ? visibleEdges
+                                .where((e) =>
+                                    e['from'] == _selectedNode || e['to'] == _selectedNode)
+                                .toList()
+                            : visibleEdges;
+                        return RawKeyboardListener(
+                          focusNode: _graphFocusNode,
+                          onKey: (event) {
+                            if (event is RawKeyDownEvent &&
+                                event.logicalKey == LogicalKeyboardKey.escape &&
+                                _selectedNode != null) {
+                              setState(() {
+                                _selectedNode = null;
+                                _hoveredNode = null;
+                              });
+                              _restoreLayout();
+                            }
+                          },
+                          child: Stack(
+                            children: [
                         // Graph canvas — InteractiveViewer handles pan/zoom.
                         // NOTE: no GestureDetector wrapper here. Any wrapper tap
                         // or double-tap recognizer enters the gesture arena and
                         // competes with (and can beat) the card tap recognizers.
                         // Deselect + double-click zoom live on a raw Listener
                         // layer BEHIND the cards (below), which never competes.
+                        // The outer Listener here covers the WHOLE viewport, so
+                        // clicks in the margins outside the canvas rect also
+                        // deselect (InteractiveViewer's internal GestureDetector
+                        // is opaque and would otherwise swallow them).
                         RepaintBoundary(
-                          child: InteractiveViewer(
+                          child: Listener(
+                            behavior: HitTestBehavior.opaque,
+                            onPointerDown: _handleGraphPointerDown,
+                            child: InteractiveViewer(
                           key: _viewerKey,
                           transformationController: _transformController,
                           constrained: false,
@@ -503,7 +601,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                                   child: IgnorePointer(
                                     child: CustomPaint(
                                       painter: _GraphEdgePainter(
-                                        edges: visibleEdges,
+                                        edges: clusterEdgePaths,
                                         nodePositions: _nodePositions,
                                         selectedNode: _selectedNode,
                                         hoveredNode: _hoveredNode,
@@ -528,7 +626,9 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                                   return Positioned(
                                     left: pos.dx,
                                     top: pos.dy,
-                                    child: _GraphNode(
+                                    child: IgnorePointer(
+                                      ignoring: isDimmed,
+                                      child: _GraphNode(
                                       file: file,
                                       color: color,
                                       isSelected: isSelected,
@@ -545,6 +645,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                                         });
                                         _startCluster(file.path, visibleEdges);
                                       },
+                                      onCardPointerDown: () => _pointerDownOnCard = true,
                                        onHover: (hovering) {
                                          setState(() => _hoveredNode = hovering ? file.path : null);
                                        },
@@ -570,12 +671,14 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                                         _draggingPath = null;
                                       },
                                     ),
-                                  );
+                                  ),
+                                );
                                 }).toList(),
                               ],
                             ),
                           ),
                         ),
+                          ),
                         ),
                         // Zoom controls (bottom-right, above minimap)
                         Positioned(
@@ -651,9 +754,10 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                           ),
                         ),
                       ],
-                    );
-                      },
-                    );
+                    )
+                      );
+                        },
+                      );
                   },
                   loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
                   error: (error, _) => _buildErrorState(error),
@@ -797,89 +901,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
 
   bool _isConnected(String a, String b, List<Map<String, dynamic>> edges) {
     return edges.any((e) => (e['from'] == a && e['to'] == b) || (e['from'] == b && e['to'] == a));
-  }
-
-  // -------------------------------------------------------------------------
-  // Structural analysis (deterministic — no AI, mirrors HEIDES spine facts)
-  // -------------------------------------------------------------------------
-
-  /// Entry points: files nothing else imports (roots of the graph).
-  Set<String> _entryPoints(List<IndexedFile> files, List<Map<String, dynamic>> edges) {
-    final imported = <String>{};
-    for (final e in edges) {
-      imported.add(e['to'] as String);
-    }
-    return files.map((f) => f.path).where((p) => !imported.contains(p)).toSet();
-  }
-
-  /// Hubs: the most-connected nodes (degree >= 3, or top third for small graphs).
-  Set<String> _hubPaths(List<IndexedFile> files, List<Map<String, dynamic>> edges) {
-    final degree = <String, int>{};
-    for (final f in files) {
-      degree[f.path] = 0;
-    }
-    for (final e in edges) {
-      final from = e['from'] as String;
-      final to = e['to'] as String;
-      if (degree.containsKey(from)) degree[from] = degree[from]! + 1;
-      if (degree.containsKey(to)) degree[to] = degree[to]! + 1;
-    }
-    final sorted = degree.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    final threshold = files.length <= 8 ? 2 : 3;
-    return sorted.where((e) => e.value >= threshold).map((e) => e.key).toSet();
-  }
-
-  /// Cycles: strongly connected components with >1 member (Tarjan).
-  Set<String> _cyclePaths(List<IndexedFile> files, List<Map<String, dynamic>> edges) {
-    final adj = <String, List<String>>{};
-    for (final f in files) {
-      adj[f.path] = [];
-    }
-    for (final e in edges) {
-      final from = e['from'] as String;
-      final to = e['to'] as String;
-      if (adj.containsKey(from) && adj.containsKey(to)) adj[from]!.add(to);
-    }
-
-    final index = <String, int>{};
-    final lowLink = <String, int>{};
-    final onStack = <String>{};
-    final stack = <String>[];
-    final cycleNodes = <String>{};
-    var counter = 0;
-
-    void strongConnect(String v) {
-      index[v] = counter;
-      lowLink[v] = counter;
-      counter++;
-      stack.add(v);
-      onStack.add(v);
-
-      for (final w in adj[v]!) {
-        if (!index.containsKey(w)) {
-          strongConnect(w);
-          lowLink[v] = lowLink[v]! < lowLink[w]! ? lowLink[v]! : lowLink[w]!;
-        } else if (onStack.contains(w)) {
-          lowLink[v] = lowLink[v]! < index[w]! ? lowLink[v]! : index[w]!;
-        }
-      }
-
-      if (lowLink[v] == index[v]) {
-        final component = <String>[];
-        while (true) {
-          final w = stack.removeLast();
-          onStack.remove(w);
-          component.add(w);
-          if (w == v) break;
-        }
-        if (component.length > 1) cycleNodes.addAll(component);
-      }
-    }
-
-    for (final f in files) {
-      if (!index.containsKey(f.path)) strongConnect(f.path);
-    }
-    return cycleNodes;
   }
 
   /// Module: the first directory segment of a file relative to its project.
@@ -1177,6 +1198,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
   void _resetLayout() {
     _clusterController.stop();
     _isClustered = false;
+    _clusterAnchor = null;
     _originalPositions = {};
     _clusterTargets = {};
     _transformController.value = Matrix4.identity();
@@ -1201,6 +1223,44 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
   }
 }
 
+// ==================== ENGINE CHIP ====================
+
+class _EngineChip extends StatelessWidget {
+  final bool heidesAvailable;
+
+  const _EngineChip({required this.heidesAvailable});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = heidesAvailable ? AppColors.success : AppColors.warning;
+    return Tooltip(
+      message: heidesAvailable
+          ? 'HEIDES engine attached — graph facts come from the live MCP engine'
+          : 'HEIDES not detected — showing the local offline index (fallback)',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(heidesAvailable ? Icons.memory_rounded : Icons.cloud_off_rounded,
+                size: 11, color: color),
+            const SizedBox(width: 4),
+            Text(
+              heidesAvailable ? 'HEIDES' : 'local fallback',
+              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ==================== NODE WIDGET ====================
 
 class _GraphNode extends StatefulWidget {
@@ -1214,6 +1274,7 @@ class _GraphNode extends StatefulWidget {
   final List<IndexedFile> allFiles;
   final String projectPath;
   final VoidCallback onSelect;
+  final VoidCallback onCardPointerDown;
   final void Function(bool) onHover;
   final void Function(Offset) onDragStart;
   final void Function(Offset) onDragUpdate;
@@ -1230,6 +1291,7 @@ class _GraphNode extends StatefulWidget {
     required this.allFiles,
     required this.projectPath,
     required this.onSelect,
+    required this.onCardPointerDown,
     required this.onHover,
     required this.onDragStart,
     required this.onDragUpdate,
@@ -1261,7 +1323,12 @@ class _GraphNodeState extends State<_GraphNode> {
       onEnter: (_) => widget.onHover(true),
       onExit: (_) => widget.onHover(false),
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        // Fires before the viewport-wide background listener (hit paths
+        // dispatch innermost-first), so it can veto deselect for card clicks.
+        onPointerDown: (_) => widget.onCardPointerDown(),
+        child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onSelect,
         onLongPressStart: (details) {
@@ -1276,7 +1343,7 @@ class _GraphNodeState extends State<_GraphNode> {
           widget.onDragEnd();
           _isDragging = false;
         },
-        child: AnimatedOpacity(
+          child: AnimatedOpacity(
           duration: const Duration(milliseconds: 200),
           opacity: widget.isDimmed ? 0.15 : 1.0,
           child: AnimatedContainer(
@@ -1387,6 +1454,7 @@ class _GraphNodeState extends State<_GraphNode> {
           ),
         ),
       ),
+      ),
     );
   }
 }
@@ -1463,8 +1531,8 @@ class _GraphEdgePainter extends CustomPainter {
 
       // Never route further than the target column's edge — lines that
       // overshoot past the target look broken.
-      final lowerBound = math.min(startX, endX) - nodeWidth;
-      final upperBound = math.max(startX, endX) + nodeWidth;
+      final lowerBound = math.min(startX, endX) - 80;
+      final upperBound = math.max(startX, endX) + 80;
       if (midX < lowerBound || midX > upperBound) continue;
 
       final p2 = Offset(midX, start.dy);

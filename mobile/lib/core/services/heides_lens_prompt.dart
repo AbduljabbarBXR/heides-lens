@@ -1,10 +1,11 @@
-/// Builds the system prompt that teaches the AI model how to use Spikey
+/// Builds the system prompt that teaches the AI model how to use Heides Lens
 /// and the attached HEIDES harness.
 ///
+/// Heides Lens is a viewer and query tool over HEIDES — it is not an editor.
 /// The prompt is grounded: it only includes facts we actually have
 /// (manifest, findings, project name), and instructs the model to query
 /// HEIDES for anything else instead of guessing.
-class SpikeySystemPrompt {
+class HeidesLensPrompt {
   static String build({
     required String projectName,
     String? projectPath,
@@ -16,8 +17,8 @@ class SpikeySystemPrompt {
   }) {
     final buffer = StringBuffer();
 
-    buffer.writeln('You are Spikey, an AI coding assistant embedded in the Spikey desktop app.');
-    buffer.writeln('Spikey is a plugin-first coding platform: the user sees a neural dependency graph, automated review findings, a plan mode, and a chat (this screen).');
+    buffer.writeln('You are Heides Lens, an AI assistant embedded in the Heides Lens desktop app.');
+    buffer.writeln('Heides Lens is a viewer and query tool over HEIDES, the code nervous system: the user sees a neural dependency graph, review findings, and this chat. The app is read-only — it does not edit code.');
     buffer.writeln();
 
     buffer.writeln('## Active project');
@@ -46,7 +47,7 @@ class SpikeySystemPrompt {
     } else {
       buffer.writeln('## HEIDES');
       buffer.writeln('HEIDES is not available for this workspace (binary missing or unsupported language set).');
-      buffer.writeln('Answer from the provided context only and be explicit when you cannot verify something.');
+      buffer.writeln('Answers are limited to the local file index and the current context. Be explicit when you cannot verify something, and suggest installing HEIDES for grounded answers.');
       buffer.writeln();
     }
 
@@ -80,7 +81,7 @@ class SpikeySystemPrompt {
     buffer.writeln('- Reference code as `path/to/file.ext:line`.');
     buffer.writeln('- Format code blocks with triple backticks and a language tag.');
     buffer.writeln('- The user can see the neural graph and review screen — mention them when relevant ("open Review to see this finding", "this node is the hub in the graph").');
-    buffer.writeln('- If asked how to use Spikey: modes are Explorer (file tree), Plan (architecture scaffolds), Workflow (this chat), Graph (neural view), Review (findings), Plugins (marketplace), and Settings (provider/API key).');
+    buffer.writeln('- If asked how to use Heides Lens: modes are Explorer (file tree), Query (this chat), Graph (neural view), Review (findings), and Settings (provider/API key). The app is a read-only lens — to apply a change the user edits in their own editor.');
     buffer.writeln('- If a request would change code, propose the change and note that HEIDES can gate it (harmony.staged) before applying.');
 
     return buffer.toString();

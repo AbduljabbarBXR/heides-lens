@@ -101,7 +101,7 @@ class HeidesService {
       await _request('initialize', {
         'protocolVersion': '2024-11-05',
         'capabilities': <String, dynamic>{},
-        'clientInfo': {'name': 'spikey', 'version': '1.0.0'},
+        'clientInfo': {'name': 'heides-lens', 'version': '1.0.0'},
       });
       _notify('notifications/initialized', {});
       _ready = true;
