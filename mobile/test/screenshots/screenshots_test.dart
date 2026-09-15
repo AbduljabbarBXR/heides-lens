@@ -213,6 +213,19 @@ void main() {
         reason: 'background tap must not leave a selection');
   });
 
+  testWidgets('05c - info panel is present with edge legend', (tester) async {
+    final container = await _buildContainer();
+    await _pumpApp(tester, container);
+    container.read(navigationProvider.notifier).setMode(AppMode.graph);
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+
+    // The stable info panel (replaces flickering tooltips) shows the legend
+    expect(find.text('Edge Types'), findsOneWidget);
+    expect(find.text('Dependency flow (→)'), findsOneWidget);
+    expect(find.text('Back-edge / cycle (←)'), findsOneWidget);
+    expect(find.text('Vertical link (↑↓)'), findsOneWidget);
+  });
+
   testWidgets('06 - review (findings)', (tester) async {
     final container = await _buildContainer();
     await _pumpApp(tester, container);

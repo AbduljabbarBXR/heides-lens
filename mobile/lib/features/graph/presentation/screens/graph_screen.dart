@@ -39,7 +39,8 @@ class GraphScreen extends ConsumerStatefulWidget {
 
 enum GraphFacet { all, entryPoints, hubs, cycles, modules }
 
-class _GraphScreenState extends ConsumerState<GraphScreen> {
+class _GraphScreenState extends ConsumerState<GraphScreen>
+    with SingleTickerProviderStateMixin {
   bool _indexing = false;
   double _indexProgress = 0.0;
   final Map<String, Offset> _nodePositions = {};
@@ -57,8 +58,89 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
   Map<String, Rect> _moduleBands = {};
   DateTime? _lastBackgroundTap;
 
+  // Cluster-on-select: when a card is clicked, its connected neighbors glide
+  // into a ring around it so they're all visible together (dim overlay kept).
+  // Clicking away animates everything back to the original layout.
+  Map<String, Offset> _originalPositions = {};
+  Map<String, Offset> _clusterTargets = {};
+  bool _isClustered = false;
+  late final AnimationController _clusterController;
+
+  @override
+  void initState() {
+    super.initState();
+    _clusterController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    )..addListener(_animateClusterStep);
+  }
+
+  void _animateClusterStep() {
+    final t = Curves.easeInOut.transform(_clusterController.value);
+    if (!_isClustered) {
+      // Animating back to original layout
+      for (final entry in _clusterTargets.entries) {
+        final from = _nodePositions[entry.key];
+        final to = _originalPositions[entry.key];
+        if (from == null || to == null) continue;
+        _nodePositions[entry.key] = Offset.lerp(from, to, t)!;
+      }
+    } else {
+      // Animating toward the ring
+      for (final entry in _clusterTargets.entries) {
+        final from = _originalPositions[entry.key];
+        final to = _clusterTargets[entry.key];
+        if (from == null || to == null) continue;
+        _nodePositions[entry.key] = Offset.lerp(from, to, t)!;
+      }
+    }
+    setState(() {});
+  }
+
+  /// Build a ring of the selected node + its connected neighbors. Targets are
+  /// computed once so re-triggering is smooth.
+  void _buildClusterTargets(String selectedPath, List<Map<String, dynamic>> edges) {
+    final neighbors = <String>{selectedPath};
+    for (final e in edges) {
+      if (e['from'] == selectedPath) neighbors.add(e['to'] as String);
+      if (e['to'] == selectedPath) neighbors.add(e['from'] as String);
+    }
+
+    _originalPositions = Map.of(_nodePositions);
+    final selectedPos = _originalPositions[selectedPath];
+    if (selectedPos == null) return;
+
+    final center = Offset(selectedPos.dx + 110, selectedPos.dy + 40);
+    const radius = 170.0;
+    final ring = neighbors.where((n) => n != selectedPath).toList();
+    _clusterTargets[selectedPath] = selectedPos;
+
+    for (var i = 0; i < ring.length; i++) {
+      final angle = (2 * math.pi * i / ring.length) - math.pi / 2;
+      final target = Offset(
+        center.dx + radius * math.cos(angle) - 110,
+        center.dy + radius * math.sin(angle) - 40,
+      );
+      _clusterTargets[ring[i]] = target;
+    }
+  }
+
+  void _startCluster(String selectedPath, List<Map<String, dynamic>> edges) {
+    if (_isClustered) return;
+    _buildClusterTargets(selectedPath, edges);
+    _isClustered = true;
+    _clusterController.forward(from: 0);
+  }
+
+  void _restoreLayout() {
+    if (!_isClustered) return;
+    _isClustered = false;
+    _clusterController.reverse();
+  }
+
   @override
   void dispose() {
+    _clusterController.dispose();
     _transformController.dispose();
     super.dispose();
   }
@@ -392,6 +474,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                                           _selectedNode = null;
                                           _hoveredNode = null;
                                         });
+                                        _restoreLayout();
                                       }
                                     },
                                     child: const SizedBox.expand(),
@@ -444,10 +527,13 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                                       edges: visibleEdges,
                                       allFiles: visibleFiles,
                                       projectPath: projectState.activeProject?.path ?? '',
-                                      onSelect: () => setState(() {
-                                        _selectedNode = file.path;
-                                        _hoveredNode = null;
-                                      }),
+                                      onSelect: () {
+                                        setState(() {
+                                          _selectedNode = file.path;
+                                          _hoveredNode = null;
+                                        });
+                                        _startCluster(file.path, visibleEdges);
+                                      },
                                        onHover: (hovering) {
                                          setState(() => _hoveredNode = hovering ? file.path : null);
                                        },
@@ -539,6 +625,18 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                                 ),
                               ],
                             ),
+                          ),
+                        ),
+                        // Node info + edge legend panel (stable, top-right)
+                        Positioned(
+                          right: 16,
+                          top: 16,
+                          child: _NodeInfoPanel(
+                            node: _activeInfoNode(visibleFiles),
+                            entrySet: entrySet,
+                            hubSet: hubSet,
+                            cycleSet: cycleSet,
+                            connectedCount: _connectedCount(visibleEdges),
                           ),
                         ),
                       ],
@@ -643,6 +741,26 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     final sortedKeys = groups.keys.toList()
       ..sort((a, b) => groups[b]!.length.compareTo(groups[a]!.length));
     return {for (final k in sortedKeys) k: groups[k]!};
+  }
+
+  /// The node currently under the cursor, else the selected node.
+  IndexedFile? _activeInfoNode(List<IndexedFile> files) {
+    final path = _hoveredNode ?? _selectedNode;
+    if (path == null) return null;
+    for (final f in files) {
+      if (f.path == path) return f;
+    }
+    return null;
+  }
+
+  int _connectedCount(List<Map<String, dynamic>> edges) {
+    final path = _hoveredNode ?? _selectedNode;
+    if (path == null) return 0;
+    var count = 0;
+    for (final e in edges) {
+      if (e['from'] == path || e['to'] == path) count++;
+    }
+    return count;
   }
 
   String _getFileType(String path) {
@@ -1046,6 +1164,10 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
   }
 
   void _resetLayout() {
+    _clusterController.stop();
+    _isClustered = false;
+    _originalPositions = {};
+    _clusterTargets = {};
     _transformController.value = Matrix4.identity();
     setState(() {
       _nodePositions.clear();
@@ -1498,17 +1620,136 @@ class _BadgeChip extends StatelessWidget {
       _ => (Icons.circle, AppColors.textMuted, badge),
     };
 
-    return Tooltip(
-      message: tooltip,
-      child: Container(
-        width: 16,
-        height: 16,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Icon(icon, size: 10, color: color),
+    // NOTE: no Tooltip here. Tooltips inside a self-rebuilding node tree get
+    // dismissed the moment hover triggers a rebuild (they flash and vanish).
+    // Badge meanings are shown in the stable right-side _NodeInfoPanel instead.
+    return Container(
+      width: 16,
+      height: 16,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
       ),
+      child: Icon(icon, size: 10, color: color),
+    );
+  }
+}
+
+// ==================== NODE INFO PANEL ====================
+
+class _NodeInfoPanel extends StatelessWidget {
+  final IndexedFile? node;
+  final Set<String> entrySet;
+  final Set<String> hubSet;
+  final Set<String> cycleSet;
+  final int connectedCount;
+
+  const _NodeInfoPanel({
+    required this.node,
+    required this.entrySet,
+    required this.hubSet,
+    required this.cycleSet,
+    required this.connectedCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final n = node;
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Edge Types',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          _legendRow(AppColors.border.withValues(alpha: 0.55), 'Dependency flow (→)'),
+          _legendRow(AppColors.warning.withValues(alpha: 0.5), 'Back-edge / cycle (←)'),
+          _legendRow(AppColors.info.withValues(alpha: 0.4), 'Vertical link (↑↓)'),
+          const SizedBox(height: 10),
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+          if (n == null) ...[
+            const Text('Hover or click a card to inspect it.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+          ] else ...[
+            Text(p.basename(n.path),
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(p.dirname(n.path),
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                if (n.loc > 0)
+                  _chip('${n.loc} lines', AppColors.textSecondary),
+                if (entrySet.contains(n.path))
+                  _chip('Entry point', AppColors.warning),
+                if (hubSet.contains(n.path))
+                  _chip('Hub', AppColors.primary),
+                if (cycleSet.contains(n.path))
+                  _chip('In cycle', AppColors.error),
+                if (connectedCount > 0)
+                  _chip('$connectedCount links', AppColors.info),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _legendRow(Color color, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 20,
+            height: 0,
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: color, width: 2)),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(label,
+                style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(label,
+          style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w600)),
     );
   }
 }
