@@ -164,11 +164,19 @@ void main() {
     await expectLater(find.byType(WelcomeScreen), matchesGoldenFile('goldens/welcome.png'));
   });
 
+  testWidgets('01b - home dashboard', (tester) async {
+    final container = await _buildContainer();
+    await _pumpApp(tester, container);
+    container.read(navigationProvider.notifier).setMode(AppMode.home);
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/home.png'));
+  });
+
   testWidgets('02 - explorer (file tree)', (tester) async {
     final container = await _buildContainer();
     await _pumpApp(tester, container);
     // Open the sidebar via the Explorer activity button
-    await tester.tap(find.byTooltip('Explorer (Ctrl+1)'));
+    await tester.tap(find.byTooltip('Explorer (Ctrl+2)'));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/explorer.png'));

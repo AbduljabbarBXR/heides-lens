@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum AppMode { explorer, plan, workflow, graph, review, plugins }
+enum AppMode { home, explorer, workflow, graph, review, plugins }
 
 class NavigationState {
   final AppMode currentMode;
@@ -17,7 +17,7 @@ class NavigationState {
 }
 
 class NavigationNotifier extends StateNotifier<NavigationState> {
-  NavigationNotifier() : super(const NavigationState(currentMode: AppMode.explorer, selectedIndex: 0));
+  NavigationNotifier() : super(const NavigationState(currentMode: AppMode.home, selectedIndex: 0));
 
   void setMode(AppMode mode) {
     final index = AppMode.values.indexOf(mode);

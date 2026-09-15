@@ -88,10 +88,10 @@ void main() {
   });
 
   group('NavigationProvider Tests', () {
-    test('initial state is explorer mode', () {
+    test('initial state is home mode', () {
       final container = ProviderContainer();
       final state = container.read(navigationProvider);
-      expect(state.currentMode, AppMode.explorer);
+      expect(state.currentMode, AppMode.home);
       expect(state.selectedIndex, 0);
     });
 
@@ -124,7 +124,7 @@ void main() {
       notifier.setIndex(99);
       
       final state = container.read(navigationProvider);
-      expect(state.currentMode, AppMode.explorer);
+      expect(state.currentMode, AppMode.home);
       expect(state.selectedIndex, 0);
     });
   });

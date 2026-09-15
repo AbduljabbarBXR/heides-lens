@@ -54,7 +54,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
   final GlobalKey _viewerKey = GlobalKey();
   bool _initialFitDone = false;
   bool _isGridView = false;
-  bool _isPanning = false;
   Map<String, Rect> _moduleBands = {};
   DateTime? _lastBackgroundTap;
 
@@ -363,8 +362,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                           // (without it, InteractiveViewer locks an axis when the
                           // scaled content is narrower than the viewport)
                           boundaryMargin: const EdgeInsets.all(double.infinity),
-                          onInteractionStart: (_) => _isPanning = true,
-                          onInteractionEnd: (_) => _isPanning = false,
                           child: Container(
                             width: canvasWidth,
                             height: canvasHeight,
@@ -451,10 +448,9 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                                         _selectedNode = file.path;
                                         _hoveredNode = null;
                                       }),
-                                      onHover: (hovering) {
-                                        if (_isPanning) return;
-                                        setState(() => _hoveredNode = hovering ? file.path : null);
-                                      },
+                                       onHover: (hovering) {
+                                         setState(() => _hoveredNode = hovering ? file.path : null);
+                                       },
                                       onDragStart: (globalPos) {
                                         _draggingPath = file.path;
                                         _dragStart = globalPos;
@@ -1114,8 +1110,6 @@ class _GraphNode extends StatefulWidget {
 
 class _GraphNodeState extends State<_GraphNode> {
   bool _isDragging = false;
-  Offset? _localDragStart;
-  Offset? _globalDragStart;
 
   @override
   Widget build(BuildContext context) {
@@ -1133,42 +1127,22 @@ class _GraphNodeState extends State<_GraphNode> {
 
     return MouseRegion(
       onEnter: (_) => widget.onHover(true),
-      onExit: (_) {
-        if (!_isDragging) widget.onHover(false);
-      },
-      cursor: _isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.click,
+      onExit: (_) => widget.onHover(false),
+      cursor: SystemMouseCursors.click,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _isDragging ? null : widget.onSelect,
-        onPanStart: (details) {
-          _isDragging = false;
-          _localDragStart = details.localPosition;
-          _globalDragStart = details.globalPosition;
+        onTap: widget.onSelect,
+        onLongPressStart: (details) {
+          _isDragging = true;
           widget.onDragStart(details.globalPosition);
         },
-        onPanUpdate: (details) {
-          if (_localDragStart == null || _globalDragStart == null) return;
-          final totalDelta = details.globalPosition - _globalDragStart!;
-          if (!_isDragging && totalDelta.distance > 3.0) {
-            _isDragging = true;
-            widget.onHover(true);
-          }
-          if (_isDragging) {
-            widget.onDragUpdate(details.globalPosition);
-          }
+        onLongPressMoveUpdate: (details) {
+          if (!_isDragging) return;
+          widget.onDragUpdate(details.globalPosition);
         },
-        onPanEnd: (_) {
-          if (!_isDragging && _localDragStart != null) {
-            // It was a tap, not a drag
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) widget.onSelect();
-            });
-          }
+        onLongPressEnd: (_) {
           widget.onDragEnd();
           _isDragging = false;
-          _localDragStart = null;
-          _globalDragStart = null;
-          widget.onHover(false);
         },
         child: AnimatedOpacity(
           duration: const Duration(milliseconds: 200),

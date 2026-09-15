@@ -9,8 +9,9 @@ import 'package:spikey/core/providers/navigation_provider.dart';
 import 'package:spikey/core/providers/project_provider.dart';
 import 'package:spikey/core/providers/indexing_provider.dart';
 import 'package:spikey/core/providers/findings_provider.dart';
+import 'package:spikey/core/providers/notifications_provider.dart';
 import 'package:spikey/core/onboarding/onboarding_overlay.dart';
-import 'package:spikey/features/plan/presentation/screens/plan_screen.dart';
+import 'package:spikey/features/home/presentation/screens/home_screen.dart';
 import 'package:spikey/features/workflow/presentation/screens/workflow_screen.dart';
 import 'package:spikey/features/graph/presentation/screens/graph_screen.dart';
 import 'package:spikey/features/review/presentation/screens/review_screen.dart';
@@ -88,6 +89,39 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
+  /// Number of files that participate in dependency cycles (graph badge).
+  int _countCycles(List<dynamic> files, List<dynamic> edges) {
+    final adj = <String, List<String>>{};
+    for (final f in files) {
+      adj[(f as dynamic).path as String] = [];
+    }
+    for (final e in edges) {
+      final m = e as Map;
+      final from = m['from'] as String;
+      final to = m['to'] as String;
+      if (adj.containsKey(from) && adj.containsKey(to)) adj[from]!.add(to);
+    }
+    final visited = <String, int>{};
+    final stack = <String>{};
+    var cycleCount = 0;
+
+    void dfs(String v) {
+      visited[v] = 1;
+      stack.add(v);
+      for (final w in adj[v] ?? const <String>[]) {
+        if (stack.contains(w)) cycleCount++;
+        if (!visited.containsKey(w)) dfs(w);
+      }
+      stack.remove(v);
+    }
+
+    for (final f in files) {
+      final path = (f as dynamic).path as String;
+      if (!visited.containsKey(path)) dfs(path);
+    }
+    return cycleCount;
+  }
+
   /// Preload graph + review data in the background so the screens are
   /// instant when the user navigates to them.
   void _preloadData(String projectPath) {
@@ -96,10 +130,17 @@ class _AppShellState extends ConsumerState<AppShell> {
       ref.read(indexedFilesProvider(projectPath).future);
     } catch (_) {}
     try {
-      ref.read(graphDataProvider(projectPath).future);
+      ref.read(graphDataProvider(projectPath).future).then((data) {
+        final edges = data['edges'] as List<dynamic>;
+        final cycles = _countCycles(data['files'] as List<dynamic>, edges);
+        ref.read(notificationsProvider.notifier).setLive('graph', cycles);
+      }).catchError((_) {});
     } catch (_) {}
     try {
-      ref.read(findingsProvider(projectPath).future);
+      ref.read(findingsProvider(projectPath).future).then((findings) {
+        // Update the Review notification badge with the findings count.
+        ref.read(notificationsProvider.notifier).setLive('review', findings.length);
+      }).catchError((_) {});
     } catch (_) {}
   }
 
@@ -158,18 +199,21 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (isCtrl) {
       switch (event.logicalKey) {
         case LogicalKeyboardKey.digit1:
+          ref.read(navigationProvider.notifier).setMode(AppMode.home);
+        case LogicalKeyboardKey.digit2:
           ref.read(navigationProvider.notifier).setMode(AppMode.explorer);
           setState(() => _isSidebarOpen = true);
-        case LogicalKeyboardKey.digit2:
-          ref.read(navigationProvider.notifier).setMode(AppMode.plan);
         case LogicalKeyboardKey.digit3:
           ref.read(navigationProvider.notifier).setMode(AppMode.workflow);
         case LogicalKeyboardKey.digit4:
           ref.read(navigationProvider.notifier).setMode(AppMode.graph);
+          ref.read(notificationsProvider.notifier).markSeen('graph');
         case LogicalKeyboardKey.digit5:
           ref.read(navigationProvider.notifier).setMode(AppMode.review);
+          ref.read(notificationsProvider.notifier).markSeen('review');
         case LogicalKeyboardKey.digit6:
           ref.read(navigationProvider.notifier).setMode(AppMode.plugins);
+          ref.read(notificationsProvider.notifier).markSeen('plugins');
         case LogicalKeyboardKey.keyP:
           _showProjectSelector();
         case LogicalKeyboardKey.comma:
@@ -188,6 +232,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     final navState = ref.watch(navigationProvider);
     final projectState = ref.watch(projectProvider);
+    final notificationBadges = ref.watch(notificationsProvider);
     final isExplorer = navState.currentMode == AppMode.explorer;
 
     // Show logo picker on first launch
@@ -307,8 +352,15 @@ class _AppShellState extends ConsumerState<AppShell> {
                       children: [
                         const SizedBox(height: 8),
                         _ActivityIconButton(
+                          icon: Icons.space_dashboard_rounded,
+                          tooltip: 'Home (Ctrl+1)',
+                          isActive: navState.currentMode == AppMode.home,
+                          onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.home),
+                        ),
+                        const SizedBox(height: 4),
+                        _ActivityIconButton(
                           icon: Icons.folder_rounded,
-                          tooltip: 'Explorer (Ctrl+1)',
+                          tooltip: 'Explorer (Ctrl+2)',
                           isActive: _isSidebarOpen && isExplorer,
                           onTap: () {
                             final notifier = ref.read(navigationProvider.notifier);
@@ -322,15 +374,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                         ),
                         const SizedBox(height: 4),
                         _ActivityIconButton(
-                          icon: Icons.architecture_rounded,
-                          tooltip: 'Plan (Ctrl+2)',
-                          isActive: navState.currentMode == AppMode.plan,
-                          onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.plan),
-                        ),
-                        const SizedBox(height: 4),
-                        _ActivityIconButton(
                           icon: Icons.terminal_rounded,
-                          tooltip: 'Workflow (Ctrl+3)',
+                          tooltip: 'Query (Ctrl+3)',
                           isActive: navState.currentMode == AppMode.workflow,
                           onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.workflow),
                         ),
@@ -339,21 +384,33 @@ class _AppShellState extends ConsumerState<AppShell> {
                           icon: Icons.account_tree_rounded,
                           tooltip: 'Graph (Ctrl+4)',
                           isActive: navState.currentMode == AppMode.graph,
-                          onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.graph),
+                          badge: notificationBadges.graph,
+                          onTap: () {
+                            ref.read(navigationProvider.notifier).setMode(AppMode.graph);
+                            ref.read(notificationsProvider.notifier).markSeen('graph');
+                          },
                         ),
                         const SizedBox(height: 4),
                         _ActivityIconButton(
                           icon: Icons.verified_rounded,
                           tooltip: 'Review (Ctrl+5)',
                           isActive: navState.currentMode == AppMode.review,
-                          onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.review),
+                          badge: notificationBadges.review,
+                          onTap: () {
+                            ref.read(navigationProvider.notifier).setMode(AppMode.review);
+                            ref.read(notificationsProvider.notifier).markSeen('review');
+                          },
                         ),
                         const SizedBox(height: 4),
                         _ActivityIconButton(
                           icon: Icons.extension_rounded,
                           tooltip: 'Plugins (Ctrl+6)',
                           isActive: navState.currentMode == AppMode.plugins,
-                          onTap: () => ref.read(navigationProvider.notifier).setMode(AppMode.plugins),
+                          badge: notificationBadges.plugins,
+                          onTap: () {
+                            ref.read(navigationProvider.notifier).setMode(AppMode.plugins);
+                            ref.read(notificationsProvider.notifier).markSeen('plugins');
+                          },
                         ),
                         const Spacer(),
                         Column(
@@ -444,6 +501,8 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   Widget _buildModeContent(AppMode mode, dynamic activeProject) {
     switch (mode) {
+      case AppMode.home:
+        return const HomeScreen(key: ValueKey('home'));
       case AppMode.explorer:
         if (activeProject == null) {
           return Center(
@@ -469,8 +528,6 @@ class _AppShellState extends ConsumerState<AppShell> {
           );
         }
         return const SizedBox.shrink(key: ValueKey('explorer-empty-tree'));
-      case AppMode.plan:
-        return const PlanScreen(key: ValueKey('plan'));
       case AppMode.workflow:
         return const WorkflowScreen(key: ValueKey('workflow'));
       case AppMode.graph:
@@ -1005,8 +1062,15 @@ class _ActivityIconButton extends StatefulWidget {
   final bool isActive;
   final VoidCallback onTap;
   final String? tooltip;
+  final int badge;
 
-  const _ActivityIconButton({required this.icon, required this.isActive, required this.onTap, this.tooltip});
+  const _ActivityIconButton({
+    required this.icon,
+    required this.isActive,
+    required this.onTap,
+    this.tooltip,
+    this.badge = 0,
+  });
 
   @override
   State<_ActivityIconButton> createState() => _ActivityIconButtonState();
@@ -1071,6 +1135,29 @@ class _ActivityIconButtonState extends State<_ActivityIconButton> {
                     size: 20,
                   ),
                 ),
+                // Notification badge (top-right)
+                if (widget.badge > 0)
+                  Positioned(
+                    right: 4,
+                    top: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppColors.error,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      child: Text(
+                        widget.badge > 99 ? '99+' : '${widget.badge}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
