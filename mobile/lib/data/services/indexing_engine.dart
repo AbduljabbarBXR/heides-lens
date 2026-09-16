@@ -289,6 +289,11 @@ class FileScanner {
     '.md', '.markdown', '.json', '.yaml', '.yml', '.toml',
     '.css', '.scss', '.less', '.html', '.htm', '.xml', '.tex',
     '.mk', '.cmake',
+    // Language pack 3 (Tier 6)
+    '.coffee', '.litcoffee', '.elm', '.hx', '.lisp', '.lsp', '.scm',
+    '.tcl', '.vb', '.pas', '.ada', '.pro', '.v', '.vhd', '.vhdl',
+    '.sv', '.cob', '.cbl', '.ahk', '.purs', '.res', '.qml',
+    '.bat', '.cmd', '.gleam', '.asm', '.s',
   };
 
   static bool isSupported(String ext) {
@@ -316,12 +321,21 @@ class FileScanner {
 
       // Function-like declarations across languages: JS/TS `function`,
       // Swift/Go `func`, Kotlin/Scala `fun`/`def`, Rust `fn`, Python/Ruby
-      // `def`, Perl `sub`, Tcl/VB `proc`, Fortran `subroutine`.
-      final funcMatch = RegExp(r'\b(?:function|func|fun|fn|def|sub|proc|subroutine)\s+(\w+)')
-          .firstMatch(trimmed);
+      // `def`, Perl/Tcl `sub`/`proc`, Fortran/Pascal/Ada `subroutine`/
+      // `procedure`, VB `Sub`/`Function` (case-insensitive keywords).
+      final funcMatch = RegExp(r'\b(?:function|func|fun|fn|def|sub|proc|subroutine|procedure)\s+(\w+)',
+          caseSensitive: false).firstMatch(trimmed);
       if (funcMatch != null) {
         final name = funcMatch.group(1)!;
         symbols.add({'name': name, 'type': 'function', 'line': i + 1, 'signature': funcMatch.group(0)});
+        functionStack.add(name);
+      }
+
+      // Lisp/Scheme: (define (name args) ...)
+      final defineMatch = RegExp(r'\(define\s*\(\s*(\w+)').firstMatch(trimmed);
+      if (defineMatch != null) {
+        final name = defineMatch.group(1)!;
+        symbols.add({'name': name, 'type': 'function', 'line': i + 1, 'signature': defineMatch.group(0)});
         functionStack.add(name);
       }
 
@@ -515,6 +529,33 @@ class FileScanner {
       '.tex': 'latex',
       '.mk': 'make',
       '.cmake': 'cmake',
+      '.coffee': 'coffeescript',
+      '.litcoffee': 'coffeescript',
+      '.elm': 'elm',
+      '.hx': 'haxe',
+      '.lisp': 'lisp',
+      '.lsp': 'lisp',
+      '.scm': 'scheme',
+      '.tcl': 'tcl',
+      '.vb': 'vb',
+      '.pas': 'pascal',
+      '.ada': 'ada',
+      '.pro': 'prolog',
+      '.v': 'verilog',
+      '.vhd': 'vhdl',
+      '.vhdl': 'vhdl',
+      '.sv': 'systemverilog',
+      '.cob': 'cobol',
+      '.cbl': 'cobol',
+      '.ahk': 'autohotkey',
+      '.purs': 'purescript',
+      '.res': 'rescript',
+      '.qml': 'qml',
+      '.bat': 'batch',
+      '.cmd': 'batch',
+      '.gleam': 'gleam',
+      '.asm': 'assembly',
+      '.s': 'assembly',
     };
     return map[ext] ?? 'unknown';
   }

@@ -122,6 +122,26 @@ void main() {
       '.tex': 'latex',
       '.mk': 'make',
       '.cmake': 'cmake',
+      '.coffee': 'coffeescript',
+      '.elm': 'elm',
+      '.hx': 'haxe',
+      '.lisp': 'lisp',
+      '.scm': 'scheme',
+      '.tcl': 'tcl',
+      '.vb': 'vb',
+      '.pas': 'pascal',
+      '.ada': 'ada',
+      '.v': 'verilog',
+      '.vhd': 'vhdl',
+      '.sv': 'systemverilog',
+      '.cob': 'cobol',
+      '.ahk': 'autohotkey',
+      '.purs': 'purescript',
+      '.res': 'rescript',
+      '.qml': 'qml',
+      '.bat': 'batch',
+      '.gleam': 'gleam',
+      '.asm': 'assembly',
     };
     expected.forEach((ext, lang) {
       expect(FileScanner.detectLanguage(ext), lang, reason: 'detectLanguage($ext)');
@@ -139,16 +159,64 @@ void main() {
     writeFile('app.jl', 'function train()\n  println("x")\nend\n');
     writeFile('trait.sol', 'contract Token {}\nfunction balanceOf() public {}\n');
     writeFile('pages.astro', '---\nconst title = "Home";\n---\n<html>hi</html>\n');
+    writeFile('main.scm', '(define (fib n)\n  (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2)))))\n');
+    writeFile('util.vb', 'Public Sub Save()\nEnd Sub\nFunction Load() As Integer\nEnd Function\n');
+    writeFile('app.gleam', 'pub fn main() {\n  io.println("hi")\n}\n');
+    writeFile('model.elm', 'module Model exposing (..)\ntype alias User = { name : String }\n');
+    writeFile('calc.tcl', r'proc add {a b} {' + '\n' + r'  return [expr {$a + $b}]' + '\n}\n');
+    writeFile('top.vhd', 'entity top is\nend entity;\narchitecture rtl of top is\nend rtl;\n');
 
     await engine.indexProject(tempDir.path);
     final files = await engine.getIndexedFiles(projectPath: tempDir.path);
-    expect(files.length, 10, reason: 'all language-pack files must index');
+    expect(files.length, 16, reason: 'all language-pack files must index');
 
     final db = await engine.db.db;
     final names = (await db.query('symbols')).map((s) => s['name']).toSet();
     expect(names, containsAll([
       'App', 'greet', 'main', 'Program', 'deploy', 'start', 'name',
-      'handle_call', 'train', 'balanceOf',
+      'handle_call', 'train', 'balanceOf', 'fib', 'Save', 'Load', 'add',
     ]));
+  });
+
+  test('stress: large multi-language tree indexes without duplicates', () async {
+    final engine = IndexingEngine();
+    const exts = [
+      '.dart', '.js', '.ts', '.tsx', '.py', '.go', '.rs', '.java', '.c', '.cpp',
+      '.h', '.rb', '.php', '.swift', '.kt', '.cs', '.sh', '.lua', '.sql', '.ex',
+      '.scala', '.pl', '.m', '.vue', '.svelte', '.hs', '.clj', '.zig', '.groovy',
+      '.r', '.f90', '.jl', '.erl', '.ml', '.fs', '.nim', '.cr', '.gd', '.sol',
+      '.astro', '.md', '.json', '.yaml', '.toml', '.css', '.html', '.xml',
+      '.tex', '.mk', '.cmake', '.coffee', '.elm', '.hx', '.lisp', '.scm',
+      '.tcl', '.vb', '.pas', '.ada', '.v', '.vhd', '.sv', '.cob', '.ahk',
+      '.purs', '.qml', '.bat', '.gleam', '.asm',
+    ];
+    var expectedFiles = 0;
+    for (var i = 0; i < 240; i++) {
+      final ext = exts[i % exts.length];
+      writeFile('src/lib_$i$ext', '// file $i\nclass Klass$i {}\nfunction helper$i() {}\n');
+      expectedFiles++;
+    }
+    // A few nested dirs + ignored dirs must be skipped
+    writeFile('node_modules/pkg/x.js', 'class Ignored {}\n');
+    writeFile('.hidden/y.dart', 'class Hidden {}\n');
+
+    await engine.indexProject(tempDir.path);
+    final files = await engine.getIndexedFiles(projectPath: tempDir.path);
+    expect(files.length, expectedFiles, reason: 'every supported file indexed once');
+    expect(files.any((f) => f.path.contains('node_modules')), isFalse,
+        reason: 'node_modules must be excluded');
+    expect(files.any((f) => f.path.contains('.hidden')), isFalse,
+        reason: 'hidden dirs must be excluded');
+
+    final db = await engine.db.db;
+    final symbolRows = await db.query('symbols');
+    expect(symbolRows.length, expectedFiles * 2, reason: 'class + function per file');
+    final fileIds = symbolRows.map((s) => s['file_id']).toSet();
+    expect(fileIds.length, expectedFiles, reason: 'one file_id per file');
+
+    // Re-index is idempotent (hash cache)
+    await engine.indexProject(tempDir.path);
+    final again = await engine.getIndexedFiles(projectPath: tempDir.path);
+    expect(again.length, expectedFiles, reason: 're-index must not duplicate');
   });
 }
