@@ -15,39 +15,51 @@ final indexedFilesProvider =
 
 /// Precomputed graph edges — shared by the graph screen and background preload
 /// so opening the graph after a project loads is instant. Scoped to project.
+/// Built with one imports query + hash lookups (O(files + imports)), not the
+/// previous per-file nested scan (O(files × imports)).
 final graphDataProvider =
     FutureProvider.family<Map<String, dynamic>, String>((ref, projectPath) async {
   final engine = ref.watch(indexingEngineProvider);
   final files = await ref.watch(indexedFilesProvider(projectPath).future);
   final edges = <Map<String, dynamic>>[];
 
+  // basename -> candidate files, built once.
+  final basenameMap = <String, List<IndexedFile>>{};
   for (final file in files) {
-    final deps = await engine.getDependencies(file.path, projectPath: projectPath);
-    for (final imp in deps['imports'] as List<Map<String, dynamic>>) {
-      final module = imp['to_module'] as String;
-      final target = files.firstWhereOrNull((f) {
-        final base = p.basenameWithoutExtension(f.path);
-        return base == module || f.path.contains(module) || module.contains(base);
-      });
-      if (target != null) {
-        edges.add({
-          'from': file.path,
-          'to': target.path,
-          'type': 'import',
-          'line': imp['line'] as int,
-        });
+    final base = p.basenameWithoutExtension(file.path).toLowerCase();
+    basenameMap.putIfAbsent(base, () => []).add(file);
+  }
+
+  final projectImports = await engine.db.getProjectImports(projectPath);
+  for (final imp in projectImports) {
+    final module = (imp['to_module'] as String).toLowerCase();
+    final fromPath = imp['from_path'] as String;
+
+    IndexedFile? target;
+    final exact = basenameMap[module];
+    if (exact != null && exact.isNotEmpty) {
+      target = exact.first;
+    } else {
+      // Path-suffix matches (e.g. import 'services/user' → lib/services/user.dart)
+      // are rare; fall back to a scan only when the exact map misses.
+      for (final file in files) {
+        final fpath = file.path.toLowerCase();
+        if (fpath.contains(module) || module.contains(p.basenameWithoutExtension(fpath))) {
+          target = file;
+          break;
+        }
       }
+    }
+
+    if (target != null) {
+      edges.add({
+        'from': fromPath,
+        'to': target.path,
+        'type': 'import',
+        'line': imp['line'] as int,
+      });
     }
   }
 
   return {'files': files, 'edges': edges};
 });
-
-extension IndexedFileList on List<IndexedFile> {
-  IndexedFile? firstWhereOrNull(bool Function(IndexedFile) test) {
-    for (final element in this) {
-      if (test(element)) return element;
-    }
-    return null;
-  }
-}

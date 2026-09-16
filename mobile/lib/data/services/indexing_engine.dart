@@ -181,6 +181,60 @@ class IndexDatabase {
     return await db.insert('calls', call);
   }
 
+  /// Upserts one file + all its symbols/imports/calls/findings in a single
+  /// transaction. This is the hot path of indexing: batching cuts the
+  /// per-file FFI round-trips from ~N+7 to 1.
+  Future<void> upsertFileWithAnalysis({
+    required String projectPath,
+    required String relPath,
+    required String hash,
+    required Map<String, dynamic> analysis,
+    int? existingFileId,
+  }) async {
+    final db = await this.db;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      final int fileId;
+      if (existingFileId != null) {
+        await txn.update(
+          'files',
+          {'hash': hash, 'last_indexed': now},
+          where: 'id = ?',
+          whereArgs: [existingFileId],
+        );
+        await txn.delete('calls', where: 'file_id = ?', whereArgs: [existingFileId]);
+        await txn.delete('imports', where: 'from_file = ?', whereArgs: [existingFileId]);
+        await txn.delete('symbols', where: 'file_id = ?', whereArgs: [existingFileId]);
+        await txn.delete('findings', where: 'file_id = ?', whereArgs: [existingFileId]);
+        fileId = existingFileId;
+      } else {
+        fileId = await txn.insert('files', {
+          'project_path': projectPath,
+          'path': relPath,
+          'hash': hash,
+          'language': analysis['language'] as String,
+          'loc': analysis['loc'] as int,
+          'last_indexed': now,
+        });
+      }
+
+      final batch = txn.batch();
+      for (final symbol in analysis['symbols'] as List<Map<String, dynamic>>) {
+        batch.insert('symbols', {'file_id': fileId, ...symbol});
+      }
+      for (final import in analysis['imports'] as List<Map<String, dynamic>>) {
+        batch.insert('imports', {'from_file': fileId, ...import});
+      }
+      for (final call in analysis['calls'] as List<Map<String, dynamic>>) {
+        batch.insert('calls', {'file_id': fileId, ...call});
+      }
+      for (final finding in analysis['findings'] as List<Map<String, dynamic>>) {
+        batch.insert('findings', {'file_id': fileId, ...finding});
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
   Future<List<Map<String, dynamic>>> getFiles({String? projectPath}) async {
     final db = await this.db;
     if (projectPath != null) {
@@ -214,6 +268,17 @@ class IndexDatabase {
   Future<List<Map<String, dynamic>>> getCallsByFile(int fileId) async {
     final db = await this.db;
     return await db.query('calls', where: 'file_id = ?', whereArgs: [fileId]);
+  }
+
+  /// All imports of a project in one query — the edge builder's hot path.
+  Future<List<Map<String, dynamic>>> getProjectImports(String projectPath) async {
+    final db = await this.db;
+    return await db.rawQuery('''
+      SELECT i.to_module AS to_module, i.line AS line, f.path AS from_path
+      FROM imports i
+      JOIN files f ON i.from_file = f.id
+      WHERE f.project_path = ?
+    ''', [projectPath]);
   }
 
   Future<int> updateFileHash(int fileId, String hash) async {
@@ -277,6 +342,10 @@ class FileScanner {
   }
 
   static const Set<String> supportedExtensions = {
+    // Code-only. Document/config extensions (json, md, yaml, html, css, …)
+    // are deliberately NOT indexed: they multiply file counts 5-20x on real
+    // projects and add noise to the mesh. detectLanguage still maps them so
+    // already-indexed files render correctly.
     '.js', '.mjs', '.cjs', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs',
     '.java', '.c', '.cpp', '.h', '.hpp', '.rb', '.php', '.dart',
     // Language pack 1 (Tier 1-3)
@@ -286,14 +355,11 @@ class FileScanner {
     // Language pack 2 (Tier 4-5)
     '.r', '.f90', '.f95', '.f', '.jl', '.erl', '.hrl', '.ml', '.mli',
     '.fs', '.fsx', '.nim', '.cr', '.d', '.gd', '.sol', '.astro',
-    '.md', '.markdown', '.json', '.yaml', '.yml', '.toml',
-    '.css', '.scss', '.less', '.html', '.htm', '.xml', '.tex',
-    '.mk', '.cmake',
     // Language pack 3 (Tier 6)
     '.coffee', '.litcoffee', '.elm', '.hx', '.lisp', '.lsp', '.scm',
     '.tcl', '.vb', '.pas', '.ada', '.pro', '.v', '.vhd', '.vhdl',
     '.sv', '.cob', '.cbl', '.ahk', '.purs', '.res', '.qml',
-    '.bat', '.cmd', '.gleam', '.asm', '.s',
+    '.gleam', '.asm',
   };
 
   static bool isSupported(String ext) {
@@ -564,19 +630,30 @@ class FileScanner {
 class IndexingEngine {
   final IndexDatabase db = IndexDatabase();
 
+  bool _indexingInProgress = false;
+
   Future<void> indexProject(String projectPath, {bool incremental = true, void Function(int current, int total)? onProgress}) async {
-    final files = await FileScanner.scanDirectory(projectPath);
-    if (!incremental) {
-      await db.clear();
-    }
+    // Single-flight: a concurrent index (auto-start + manual "Index Project")
+    // must never run against the same DB at the same time — it raced on
+    // deletes/inserts and made the mesh look perpetually empty.
+    if (_indexingInProgress) return;
+    _indexingInProgress = true;
+    try {
+      final files = await FileScanner.scanDirectory(projectPath);
+      if (!incremental) {
+        await db.clear();
+      }
 
-    final total = files.length;
-    for (var i = 0; i < total; i++) {
-      await _indexFile(files[i], projectPath);
-      onProgress?.call(i + 1, total);
-    }
+      final total = files.length;
+      for (var i = 0; i < total; i++) {
+        await _indexFile(files[i], projectPath);
+        onProgress?.call(i + 1, total);
+      }
 
-    await _removeDeletedFiles(projectPath, files);
+      await _removeDeletedFiles(projectPath, files);
+    } finally {
+      _indexingInProgress = false;
+    }
   }
 
   Future<void> _indexFile(String filePath, String projectPath) async {
@@ -592,49 +669,16 @@ class IndexingEngine {
       }
 
       final analysis = await FileScanner.analyzeFile(filePath);
-      final int fileId;
-      if (existing != null) {
-        fileId = existing['id'] as int;
-        await db.updateFileHash(fileId, hash);
-      } else {
-        fileId = await db.insertFile({
-          'project_path': projectPath,
-          'path': relPath,
-          'hash': hash,
-          'language': analysis['language'] as String,
-          'loc': analysis['loc'] as int,
-          'last_indexed': DateTime.now().millisecondsSinceEpoch,
-        });
-      }
-
-      // Delete old symbols/imports/calls/findings before re-inserting
-      if (existing != null) {
-        await db.db.then((d) async {
-          await d.delete('calls', where: 'file_id = ?', whereArgs: [fileId]);
-          await d.delete('imports', where: 'from_file = ?', whereArgs: [fileId]);
-          await d.delete('symbols', where: 'file_id = ?', whereArgs: [fileId]);
-          await d.delete('findings', where: 'file_id = ?', whereArgs: [fileId]);
-        });
-      }
-
-      for (final symbol in analysis['symbols'] as List<Map<String, dynamic>>) {
-        await db.insertSymbol({'file_id': fileId, ...symbol});
-      }
-
-      for (final import in analysis['imports'] as List<Map<String, dynamic>>) {
-        await db.insertImport({'from_file': fileId, ...import});
-      }
-
-      for (final call in analysis['calls'] as List<Map<String, dynamic>>) {
-        await db.insertCall({'file_id': fileId, ...call});
-      }
-
-      final findings = _scanSecurity(filePath, content);
-      for (final finding in findings) {
-        await db.insertFinding({'file_id': fileId, ...finding});
-      }
-    } catch (e) {
-      // Skip files that can't be indexed
+      analysis['findings'] = _scanSecurity(filePath, content);
+      await db.upsertFileWithAnalysis(
+        projectPath: projectPath,
+        relPath: relPath,
+        hash: hash,
+        analysis: analysis,
+        existingFileId: existing?['id'] as int?,
+      );
+    } catch (_) {
+      // Skip files that fail to parse/read; never abort the whole index.
     }
   }
 

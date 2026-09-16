@@ -87,7 +87,7 @@ void main() {
   });
 
   test('language pack detects new languages and extracts symbols', () async {
-    // Extension → language mapping for the added packs
+    // Extension → language mapping for the added packs (code languages only)
     const expected = {
       '.swift': 'swift',
       '.kt': 'kotlin',
@@ -112,16 +112,6 @@ void main() {
       '.gd': 'gdscript',
       '.sol': 'solidity',
       '.astro': 'astro',
-      '.md': 'markdown',
-      '.json': 'json',
-      '.yaml': 'yaml',
-      '.toml': 'toml',
-      '.css': 'css',
-      '.html': 'html',
-      '.xml': 'xml',
-      '.tex': 'latex',
-      '.mk': 'make',
-      '.cmake': 'cmake',
       '.coffee': 'coffeescript',
       '.elm': 'elm',
       '.hx': 'haxe',
@@ -139,13 +129,32 @@ void main() {
       '.purs': 'purescript',
       '.res': 'rescript',
       '.qml': 'qml',
-      '.bat': 'batch',
       '.gleam': 'gleam',
       '.asm': 'assembly',
     };
     expected.forEach((ext, lang) {
       expect(FileScanner.detectLanguage(ext), lang, reason: 'detectLanguage($ext)');
       expect(FileScanner.isSupported(ext), isTrue, reason: 'isSupported($ext)');
+    });
+
+    // Document/config extensions are still detected (already-indexed files
+    // render correctly) but deliberately NOT auto-indexed (file-count noise).
+    const docExts = {
+      '.md': 'markdown',
+      '.json': 'json',
+      '.yaml': 'yaml',
+      '.toml': 'toml',
+      '.css': 'css',
+      '.html': 'html',
+      '.xml': 'xml',
+      '.tex': 'latex',
+      '.mk': 'make',
+      '.cmake': 'cmake',
+      '.bat': 'batch',
+    };
+    docExts.forEach((ext, lang) {
+      expect(FileScanner.detectLanguage(ext), lang, reason: 'detectLanguage($ext)');
+      expect(FileScanner.isSupported(ext), isFalse, reason: 'doc ext $ext must not be indexed');
     });
 
     final engine = IndexingEngine();
@@ -180,16 +189,8 @@ void main() {
 
   test('stress: large multi-language tree indexes without duplicates', () async {
     final engine = IndexingEngine();
-    const exts = [
-      '.dart', '.js', '.ts', '.tsx', '.py', '.go', '.rs', '.java', '.c', '.cpp',
-      '.h', '.rb', '.php', '.swift', '.kt', '.cs', '.sh', '.lua', '.sql', '.ex',
-      '.scala', '.pl', '.m', '.vue', '.svelte', '.hs', '.clj', '.zig', '.groovy',
-      '.r', '.f90', '.jl', '.erl', '.ml', '.fs', '.nim', '.cr', '.gd', '.sol',
-      '.astro', '.md', '.json', '.yaml', '.toml', '.css', '.html', '.xml',
-      '.tex', '.mk', '.cmake', '.coffee', '.elm', '.hx', '.lisp', '.scm',
-      '.tcl', '.vb', '.pas', '.ada', '.v', '.vhd', '.sv', '.cob', '.ahk',
-      '.purs', '.qml', '.bat', '.gleam', '.asm',
-    ];
+    // Cycle over every supported extension — the engine must handle them all.
+    final exts = FileScanner.supportedExtensions.toList();
     var expectedFiles = 0;
     for (var i = 0; i < 240; i++) {
       final ext = exts[i % exts.length];
@@ -199,6 +200,10 @@ void main() {
     // A few nested dirs + ignored dirs must be skipped
     writeFile('node_modules/pkg/x.js', 'class Ignored {}\n');
     writeFile('.hidden/y.dart', 'class Hidden {}\n');
+    // Document/config files must NOT be picked up by the scanner
+    writeFile('docs/README.md', '# docs\n');
+    writeFile('config.json', '{"a": 1}\n');
+    writeFile('build/out.html', '<html></html>\n');
 
     await engine.indexProject(tempDir.path);
     final files = await engine.getIndexedFiles(projectPath: tempDir.path);
