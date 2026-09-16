@@ -276,8 +276,17 @@ class FileScanner {
     }
   }
 
+  static const Set<String> supportedExtensions = {
+    '.js', '.mjs', '.cjs', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs',
+    '.java', '.c', '.cpp', '.h', '.hpp', '.rb', '.php', '.dart',
+    // Language pack (Tier 1-3)
+    '.swift', '.kt', '.kts', '.cs', '.sh', '.bash', '.zsh', '.lua',
+    '.sql', '.ex', '.exs', '.scala', '.pl', '.pm', '.m', '.mm',
+    '.vue', '.svelte', '.ps1', '.hs', '.clj', '.cljs', '.zig', '.groovy',
+  };
+
   static bool isSupported(String ext) {
-    return ['.js', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.rb', '.php', '.dart'].contains(ext);
+    return supportedExtensions.contains(ext);
   }
 
   static Future<String> computeHash(String path) async {
@@ -299,22 +308,45 @@ class FileScanner {
       final line = lines[i];
       final trimmed = line.trim();
 
-      final funcMatch = RegExp(r'function\s+(\w+)\s*\(([^)]*)\)').firstMatch(trimmed);
+      // Function-like declarations across languages: JS/TS `function`,
+      // Swift/Go `func`, Kotlin/Scala `fun`/`def`, Rust `fn`, Python/Ruby
+      // `def`, Perl `sub`, Tcl/VB `proc`.
+      final funcMatch = RegExp(r'\b(?:function|func|fun|fn|def|sub|proc)\s+(\w+)')
+          .firstMatch(trimmed);
       if (funcMatch != null) {
         final name = funcMatch.group(1)!;
         symbols.add({'name': name, 'type': 'function', 'line': i + 1, 'signature': funcMatch.group(0)});
         functionStack.add(name);
       }
 
-      final classMatch = RegExp(r'class\s+(\w+)').firstMatch(trimmed);
-      if (classMatch != null) {
-        symbols.add({'name': classMatch.group(1)!, 'type': 'class', 'line': i + 1, 'signature': classMatch.group(0)});
+      // Type declarations: class, struct, interface, trait, protocol, enum,
+      // record (Swift/Kotlin/C#/Rust/Scala/…).
+      final typeMatch = RegExp(r'\b(class|struct|interface|trait|protocol|enum|record)\s+(\w+)')
+          .firstMatch(trimmed);
+      if (typeMatch != null) {
+        symbols.add({
+          'name': typeMatch.group(2)!,
+          'type': typeMatch.group(1)!,
+          'line': i + 1,
+          'signature': typeMatch.group(0),
+        });
       }
 
+      // Imports across languages:
+      //   JS/TS  import ... from 'x'
+      //   Python from x import y / import x
+      //   Go     import "x"
+      //   C/C++  #include <x> / #include "x"
+      //   ObjC   #import "x"
+      //   Rust   use foo::bar;
+      //   PHP    use Foo\Bar;
+      //   Ruby   require 'x'
+      //   Lua    require("x")
+      String? importedModule;
       if (trimmed.startsWith('import ') || trimmed.startsWith('from ')) {
         final fromIndex = trimmed.indexOf('from ');
-        if (fromIndex != -1) {
-          final afterFrom = trimmed.substring(fromIndex + 5).trim();
+        final afterFrom = fromIndex != -1 ? trimmed.substring(fromIndex + 5).trim() : null;
+        if (afterFrom != null) {
           final firstQuote = afterFrom.indexOf("'");
           final secondQuote = afterFrom.indexOf('"');
           int startQuote = -1;
@@ -327,10 +359,46 @@ class FileScanner {
             endQuote = afterFrom.indexOf('"', startQuote + 1);
           }
           if (startQuote != -1 && endQuote != -1) {
-            final module = afterFrom.substring(startQuote + 1, endQuote);
-            imports.add({'to_module': module, 'line': i + 1});
+            importedModule = afterFrom.substring(startQuote + 1, endQuote);
+          } else if (trimmed.startsWith('from ')) {
+            // Python: `from x import y` — module is the token after `from`
+            importedModule = trimmed.substring(5).split(RegExp(r'\s+')).first;
+          }
+        } else if (trimmed.startsWith('import ')) {
+          // Go: `import "x"` / bare `import x`
+          final rest = trimmed.substring(7).trim();
+          final quote = rest.startsWith('"') ? '"' : (rest.startsWith("'") ? "'" : null);
+          if (quote != null) {
+            final end = rest.indexOf(quote, 1);
+            if (end > 0) importedModule = rest.substring(1, end);
+          } else if (rest.isNotEmpty) {
+            importedModule = rest.split(RegExp(r'\s+')).first;
           }
         }
+      } else if (trimmed.startsWith('#include') || trimmed.startsWith('#import')) {
+        final open = trimmed.indexOf(RegExp(r'[<"]'));
+        if (open != -1) {
+          final closer = trimmed[open] == '<' ? '>' : '"';
+          final close = trimmed.indexOf(closer, open + 1);
+          if (close > open) importedModule = trimmed.substring(open + 1, close);
+        }
+      } else if (trimmed.startsWith('use ')) {
+        // Rust `use foo::bar;` / PHP `use Foo\Bar;`
+        importedModule = trimmed
+            .substring(4)
+            .replaceAll(';', '')
+            .trim()
+            .split(RegExp(r'[\\:]'))
+            .first
+            .trim();
+      } else if (trimmed.startsWith('require')) {
+        // Ruby `require 'x'` / Lua `require("x")`
+        final quote = trimmed.indexOf(RegExp(r'''["']'''));
+        final end = quote != -1 ? trimmed.indexOf(trimmed[quote], quote + 1) : -1;
+        if (quote != -1 && end > quote) importedModule = trimmed.substring(quote + 1, end);
+      }
+      if (importedModule != null && importedModule.isNotEmpty) {
+        imports.add({'to_module': importedModule, 'line': i + 1});
       }
 
       final callMatch = RegExp(r'(\w+)\s*\(').firstMatch(trimmed);
@@ -361,6 +429,8 @@ class FileScanner {
   static String detectLanguage(String ext) {
     const map = {
       '.js': 'javascript',
+      '.mjs': 'javascript',
+      '.cjs': 'javascript',
       '.ts': 'typescript',
       '.jsx': 'javascript',
       '.tsx': 'typescript',
@@ -371,9 +441,34 @@ class FileScanner {
       '.c': 'c',
       '.cpp': 'cpp',
       '.h': 'c',
+      '.hpp': 'cpp',
       '.rb': 'ruby',
       '.php': 'php',
       '.dart': 'dart',
+      '.swift': 'swift',
+      '.kt': 'kotlin',
+      '.kts': 'kotlin',
+      '.cs': 'csharp',
+      '.sh': 'shell',
+      '.bash': 'shell',
+      '.zsh': 'shell',
+      '.lua': 'lua',
+      '.sql': 'sql',
+      '.ex': 'elixir',
+      '.exs': 'elixir',
+      '.scala': 'scala',
+      '.pl': 'perl',
+      '.pm': 'perl',
+      '.m': 'objective-c',
+      '.mm': 'objective-c',
+      '.vue': 'vue',
+      '.svelte': 'svelte',
+      '.ps1': 'powershell',
+      '.hs': 'haskell',
+      '.clj': 'clojure',
+      '.cljs': 'clojure',
+      '.zig': 'zig',
+      '.groovy': 'groovy',
     };
     return map[ext] ?? 'unknown';
   }

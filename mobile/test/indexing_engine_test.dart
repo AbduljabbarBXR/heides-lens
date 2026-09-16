@@ -85,4 +85,42 @@ void main() {
     final fileIds = afterRows.map((s) => s['file_id']).toSet();
     expect(fileIds.length, 1);
   });
+
+  test('language pack detects new languages and extracts symbols', () async {
+    // Extension → language mapping for the added pack
+    const expected = {
+      '.swift': 'swift',
+      '.kt': 'kotlin',
+      '.cs': 'csharp',
+      '.sh': 'shell',
+      '.lua': 'lua',
+      '.sql': 'sql',
+      '.ex': 'elixir',
+      '.scala': 'scala',
+      '.zig': 'zig',
+      '.ps1': 'powershell',
+      '.hs': 'haskell',
+      '.vue': 'vue',
+    };
+    expected.forEach((ext, lang) {
+      expect(FileScanner.detectLanguage(ext), lang, reason: 'detectLanguage($ext)');
+      expect(FileScanner.isSupported(ext), isTrue, reason: 'isSupported($ext)');
+    });
+
+    final engine = IndexingEngine();
+    writeFile('main.swift', 'class App {}\nfunc greet() {\n  print("hi")\n}\n');
+    writeFile('Main.kt', 'fun main() {\n  println("hi")\n}\n');
+    writeFile('Program.cs', 'class Program {}\n');
+    writeFile('deploy.sh', '#!/bin/bash\nfunction deploy() {\n  echo hi\n}\n');
+    writeFile('lib.lua', 'function start()\n  print("x")\nend\n');
+    writeFile('user.ex', 'defmodule User do\n  def name do\n  end\nend\n');
+
+    await engine.indexProject(tempDir.path);
+    final files = await engine.getIndexedFiles(projectPath: tempDir.path);
+    expect(files.length, 6, reason: 'all six language-pack files must index');
+
+    final db = await engine.db.db;
+    final names = (await db.query('symbols')).map((s) => s['name']).toSet();
+    expect(names, containsAll(['App', 'greet', 'main', 'Program', 'deploy', 'start', 'name']));
+  });
 }
