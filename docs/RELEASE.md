@@ -60,6 +60,24 @@ but it must be discoverable.
 - [ ] Pin the MCP protocol version the server speaks (current SDK) and note it in
       the registry entry.
 
+### Lens ↔ AI: tools and resources (no extension needed)
+
+The lens helps AI models inside any MCP-capable coding app (Kilo Code, Cursor,
+Claude Code, VS Code Copilot) through the server — not through an extension:
+
+- [ ] **`lens.open` tool** — launch the Heides Lens desktop window for a given
+      project/path, so the agent can say "open the mesh for this file" and the
+      lens window appears alongside the editor. Works from any MCP client.
+- [ ] **`lens://manifest` resource** — an MCP resource that describes what the
+      lens is (read-only viewer, no editing, no LLM), what it can do, and how to
+      use the spine tools. Agents auto-discover resources, so this *is* the
+      "system prompt that fully shows what this app is to the AI".
+- [ ] Keep the tool/resource list in sync with the registry entry above.
+
+> No Kilo-Code-style extension. The agent already speaks MCP; an extension would
+> only duplicate `lens.open` + server auto-registration. Revisit only if
+> adoption data shows users need one-click setup inside a specific editor.
+
 ## 4. Plugin registry — deploy `packages/registry`
 
 - [ ] Deploy the Express registry (Render / Fly.io / Railway), HTTPS + CORS for the app.
@@ -69,7 +87,44 @@ but it must be discoverable.
       describe a marketplace that was removed — keep the registry server-side only
       until the app re-adds a marketplace surface, if ever).
 
-## 5. Linux — distribution formats
+## 5. Engine language coverage — 15+ languages
+
+The engine currently indexes **5 languages**: html, java, javascript, python,
+typescript. The release target is **15+**, with the lens fallback indexer
+(`mobile/lib/data/services/indexing_engine.dart`) kept in sync.
+
+Priority tiers (tree-sitter grammars, deterministic symbol/call/import facts):
+
+- [ ] **Tier 1 (ship first):** `dart`, `go`, `rust`, `csharp`
+- [ ] **Tier 2:** `c`, `cpp`, `ruby`, `php`, `swift`, `kotlin`
+- [ ] **Tier 3:** `bash`/shell, `lua`, `sql`, `elixir`, `vue`, `svelte`
+- [ ] Each language needs: extension mapping, symbol extraction
+      (functions/classes/methods), import edges, call edges, entry-point rules
+- [ ] Doc-coverage reporting per language (the engine already reports it)
+- [ ] Keep `detectLanguage` in the lens fallback indexer aligned with the engine's
+      extension list (it already covers dart/go/rust/java/c/cpp/rb/php)
+- [ ] Golden test: scan a fixture repo per language and assert symbol/edge counts
+
+## 6. Plugin catalog — 10 deterministic guards
+
+Plugins are engine-side `harmony` guards (the lens only renders their findings).
+Each must be deterministic, JSON-emitting, with `file:line` evidence.
+
+- [ ] `security-scanner` — shell injection, path traversal, `eval` (exists)
+- [ ] `edge-cases` — unguarded `JSON.parse`, null deref patterns (exists)
+- [ ] `secrets-scanner` — hardcoded keys, committed `.env` files
+- [ ] `dependency-risk` — missing lockfile, unpinned/deprecated deps
+- [ ] `dead-code` — unused symbols and imports
+- [ ] `performance` — N+1 queries, O(n²) loops, sync I/O in hot paths
+- [ ] `best-practice` — language idioms (const constructors, `withValues`, …)
+- [ ] `license-checker` — dependency license inventory + copyleft flags
+- [ ] `architecture-guard` — layering violations, circular imports, god files
+- [ ] `accessibility` — missing labels/aria in web surfaces
+- [ ] Publish each plugin to the registry with a manifest + version
+- [ ] `heides check` runs all enabled guards; the app's Review screen renders the
+      merged findings sorted blocker → critical → warning → info
+
+## 7. Linux — distribution formats
 
 - [ ] `flutter build linux --release` in `mobile/` → `build/linux/x64/release/bundle/`.
 - [ ] **AppImage** via `appimagetool` (single-file, most portable).
@@ -81,7 +136,7 @@ but it must be discoverable.
       fixed), first-run engine install, neural mesh interactions at the minimum
       window size (1024×768).
 
-## 6. Windows — .exe distribution
+## 8. Windows — .exe distribution
 
 - [ ] `flutter build windows --release` → `build/windows/x64/runner/Release/`.
 - [ ] Installer: **Inno Setup or NSIS** for a classic `.exe` installer; or
@@ -91,7 +146,7 @@ but it must be discoverable.
 - [ ] Verify: maximize/restore, minimize, close; engine install path (`%USERPROFILE%`
       scope) with the npm CLI; MCP registration for Windows clients.
 
-## 7. macOS — dmg distribution
+## 9. macOS — dmg distribution
 
 - [ ] `flutter build macos --release` → `build/macos/Build/Products/Release/`.
 - [ ] `.dmg` via `create-dmg` or `hdiutil`.
@@ -99,7 +154,7 @@ but it must be discoverable.
 - [ ] Verify window controls (traffic lights are native when title bar is hidden —
       confirm the custom buttons work on macOS) and engine install.
 
-## 8. CI / release automation
+## 10. CI / release automation
 
 - [ ] GitHub Actions workflow on `v*` tags:
       matrix (ubuntu-latest, macos-latest, windows-latest) →
@@ -110,7 +165,7 @@ but it must be discoverable.
 - [ ] Release checklist gate: `flutter analyze` 0 errors, `flutter test` green,
       goldens regenerated, engine install smoke-tested on each OS.
 
-## 9. Verify checklist (run before every release)
+## 11. Verify checklist (run before every release)
 
 - [ ] `dart analyze` → 0 errors in `mobile/`
 - [ ] `flutter test` → all pass (24 tests as of this writing)
