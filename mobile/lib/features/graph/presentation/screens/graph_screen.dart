@@ -154,13 +154,19 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
 
     final center = Offset(selectedPos.dx + 110, selectedPos.dy + 40);
     final ring = neighbors.where((n) => n != selectedPath).toList();
-    // Ring radius scales with neighbor count so cards never overlap:
-    // each card is ~220px wide, so the ring must comfortably exceed that.
-    // For few neighbors keep it tight; for many push it wider.
+    // Ring radius guarantees a minimum gap between adjacent cards. Adjacent
+    // card centers sit at chord length 2·R·sin(π/n); solving for R with the
+    // chord ≥ cardWidth + gap keeps dense rings from touching/overlapping.
+    // A floor keeps small rings clear of the anchor card.
     const cardWidth = 220.0;
-    final radius = ring.isEmpty
+    const gap = 24.0;
+    final n = ring.length;
+    final radius = n == 0
         ? 0.0
-        : math.max(cardWidth * 0.85, (ring.length * cardWidth) / (2 * math.pi) + 60);
+        : math.max(
+            cardWidth * 1.1,
+            (cardWidth + gap) / (2 * math.sin(math.pi / math.max(n, 2))),
+          );
     _clusterTargets[selectedPath] = selectedPos;
 
     for (var i = 0; i < ring.length; i++) {
@@ -1368,7 +1374,7 @@ class _GraphNodeState extends State<_GraphNode> {
             width: 220,
             decoration: BoxDecoration(
               color: widget.isSelected
-                  ? widget.color.withValues(alpha: 0.12)
+                  ? AppColors.surface
                   : widget.isHovered
                       ? AppColors.surfaceHover
                       : AppColors.surface,
@@ -1517,6 +1523,26 @@ class _GraphEdgePainter extends CustomPainter {
     return false;
   }
 
+  /// Point where the center-to-center segment exits the [fromPos] card's
+  /// boundary toward the card at [toPos]. Edges therefore stop at the card
+  /// border and never cross card content — critical in the cluster ring,
+  /// where neighbors sit above/below/left of the anchor (the old hardcoded
+  /// source-right/target-left assumed a left-to-right layout only).
+  Offset _boundaryPoint(Offset fromPos, Offset toPos) {
+    final fromCenter = fromPos + Offset(nodeWidth / 2, nodeHeight / 2);
+    final toCenter = toPos + Offset(nodeWidth / 2, nodeHeight / 2);
+    final dx = toCenter.dx - fromCenter.dx;
+    final dy = toCenter.dy - fromCenter.dy;
+    if (dx == 0 && dy == 0) return fromCenter;
+
+    final halfW = nodeWidth / 2;
+    final halfH = nodeHeight / 2;
+    final tx = dx == 0 ? double.infinity : (dx > 0 ? halfW / dx : -halfW / dx);
+    final ty = dy == 0 ? double.infinity : (dy > 0 ? halfH / dy : -halfH / dy);
+    final t = math.min(tx, ty);
+    return fromCenter + Offset(dx * t, dy * t);
+  }
+
   /// Build an orthogonal (elbow) path from source right edge to target left
   /// edge. Straight when clear; otherwise route through a vertical lane that
   /// avoids any card blocking the way (Supabase-style squarish routing).
@@ -1610,8 +1636,8 @@ class _GraphEdgePainter extends CustomPainter {
       final toPos = nodePositions[toPath];
       if (fromPos == null || toPos == null) continue;
 
-      final start = Offset(fromPos.dx + nodeWidth, fromPos.dy + nodeHeight / 2);
-      final end = Offset(toPos.dx, toPos.dy + nodeHeight / 2);
+      final start = _boundaryPoint(fromPos, toPos);
+      final end = _boundaryPoint(toPos, fromPos);
 
       final points = _orthogonalRoute(start, end, fromPath, toPath);
 
