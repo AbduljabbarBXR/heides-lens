@@ -1,9 +1,5 @@
 # Heides Lens
 
-![Flutter](https://img.shields.io/badge/Flutter-3.16%2B-blue)
-![Dart](https://img.shields.io/badge/Dart-3.2%2B-blue)
-![HEIDES](https://img.shields.io/badge/HEIDES-0.14%2B-green)
-![License](https://img.shields.io/badge/License-MIT-green)
 
 **The nervous system for your code, with eyes.**
 
@@ -40,14 +36,12 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 
 ### First Launch
 
-![First Launch](assets/images/screens-jpg/logo-picker.jpg)
 
 - **HEIDES engine setup** — one click installs the engine locally (no account, no cloud)
 - Interactive tour of the neural mesh, review, and guards
 
 ### Code Neural Mesh
 
-![Neural Mesh](assets/images/screens-jpg/graph.jpg)
 
 - Layered dependency layout (Sugiyama-style) with aligned columns
 - **Orthogonal edges** that route around cards — dependency flow, back-edges/cycles, and vertical links are color-coded
@@ -56,7 +50,6 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 
 ### Review (Findings)
 
-![Review](assets/images/screens-jpg/review.jpg)
 
 - Real HEIDES `harmony` findings: security taint, edge cases, dependency risk
 - Sorted blocker → critical → warning → info with file:line evidence
@@ -64,7 +57,6 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 
 ### Home (Dashboard)
 
-![Home](assets/images/screens-jpg/home.jpg)
 
 - Interactive dashboard: project stats, health snapshot, and shortcuts
 - Tappable cards navigate straight to the mesh and review

@@ -8,7 +8,6 @@ from the real UI via golden tests — regenerate with
 
 ## 1. Home (Dashboard)
 
-![Home](../assets/images/screens-jpg/home.jpg)
 
 - Interactive dashboard that lands on launch: project stats, health snapshot,
   HEIDES engine status, and tappable cards that jump to the mesh and
@@ -17,7 +16,6 @@ from the real UI via golden tests — regenerate with
 
 ## 2. Welcome & Onboarding
 
-![Welcome & Onboarding](../assets/images/screens-jpg/welcome.jpg)
 
 - First launch shows an interactive tour of the core capabilities:
   the mesh, review, and HEIDES engine.
@@ -28,7 +26,6 @@ from the real UI via golden tests — regenerate with
 
 ## 3. Code Neural Mesh
 
-![Neural Mesh](../assets/images/screens-jpg/graph.jpg)
 
 - Layered dependency layout (Sugiyama-style): entry points on the left,
   dependencies flowing right in aligned columns.
@@ -43,7 +40,6 @@ from the real UI via golden tests — regenerate with
 
 ## 5. Review (Findings)
 
-![Review](../assets/images/screens-jpg/review.jpg)
 
 - Findings from static analysis, sorted critical → warning → info.
 - Click a finding to preview the exact file with the target line highlighted.

@@ -4,13 +4,13 @@ import 'package:heides_lens/shared/themes/app_colors.dart';
 class DocsSection {
   final String title;
   final String subtitle;
-  final String image;
+  final String? image;
   final List<String> bullets;
 
   const DocsSection({
     required this.title,
     required this.subtitle,
-    required this.image,
+    this.image,
     required this.bullets,
   });
 }
@@ -19,7 +19,6 @@ const List<DocsSection> docsSections = [
   DocsSection(
     title: 'Welcome & Onboarding',
     subtitle: 'First launch experience',
-    image: 'assets/images/screens/welcome.png',
     bullets: [
       'Interactive tour of the core capabilities',
       'Detects the HEIDES engine and offers to install it if missing',
@@ -29,7 +28,6 @@ const List<DocsSection> docsSections = [
   DocsSection(
     title: 'HEIDES Engine',
     subtitle: 'The code nervous system',
-    image: 'assets/images/screens/graph.png',
     bullets: [
       'A small local binary — no account, no cloud',
       'Speaks MCP: spine.query, spine.neighbors, harmony.check, grounding.plan',
@@ -39,7 +37,6 @@ const List<DocsSection> docsSections = [
   DocsSection(
     title: 'Neural Mesh',
     subtitle: 'Visualize your architecture',
-    image: 'assets/images/screens/graph.png',
     bullets: [
       'Layered dependency layout with orthogonal connections',
       'Filter by node type via the dropdown, search files',
@@ -50,7 +47,6 @@ const List<DocsSection> docsSections = [
   DocsSection(
     title: 'Review',
     subtitle: 'Automated code findings',
-    image: 'assets/images/screens/review.png',
     bullets: [
       'Critical, warning, and info findings from static analysis',
       'Click a finding to preview the exact file and line',
@@ -164,6 +160,7 @@ class _DocsCardState extends State<_DocsCard> {
                 ),
               ],
             ),
+            if (widget.section.image != null) ...[
             const SizedBox(height: 16),
             // Screenshot
             ClipRRect(
@@ -173,13 +170,13 @@ class _DocsCardState extends State<_DocsCard> {
                 child: AspectRatio(
                   aspectRatio: 16 / 10,
                   child: Image.asset(
-                    widget.section.image,
+                    widget.section.image!,
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stack) => Container(
                       color: AppColors.background,
                       alignment: Alignment.center,
                       child: Text(
-                        'Screenshot: ${widget.section.image}',
+                        'Screenshot unavailable',
                         style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                       ),
                     ),
@@ -188,6 +185,7 @@ class _DocsCardState extends State<_DocsCard> {
               ),
             ),
             const SizedBox(height: 16),
+            ],
             ...widget.section.bullets.map((b) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
