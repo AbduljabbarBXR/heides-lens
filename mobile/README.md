@@ -1,30 +1,29 @@
 # Heides Lens
 
-A read-only viewer and query tool over **HEIDES** — the code nervous system
+A read-only viewer over **HEIDES** — the code nervous system
 ([github.com/AbduljabbarBXR/heides](https://github.com/AbduljabbarBXR/heides)).
 
-Heides Lens does not edit code. It maps a workspace into a living dependency
-graph, surfaces deterministic review findings, and lets you ask questions about
-your code with a model that is grounded in the real graph.
+Heides Lens does not edit code and ships no AI of its own. It maps a workspace
+into a living dependency mesh, surfaces deterministic review findings, and
+stands guard over every change — fully local, no account, no cloud.
 
 ## What's inside
 
-- **Neural Graph** — interactive dependency visualization with entry points,
-  hubs, cycle detection (Tarjan SCC), module bands, cluster-on-select, and
-  grid view.
-- **Query** — a chat that talks to HEIDES over MCP (`spine.query`,
-  `spine.neighbors`, `harmony.check`, `grounding.plan`) so answers cite real
-  symbols at `file:line`.
+- **Neural Mesh** — interactive dependency visualization with entry points,
+  hubs, cycle detection (Tarjan SCC), module bands, cluster-on-select,
+  click-away restore, and grid view.
 - **Review** — findings from `harmony.report`, with local static-analysis
-  fallback when HEIDES is not installed.
-- **Explorer** — read-only file tree and syntax-highlighted viewer.
+  fallback when HEIDES is not installed. Click a finding to preview the exact
+  file and line.
+- **Docs** — in-app user guide and reference (Help → Documentation).
+- **Home** — project dashboard with health snapshot and shortcuts.
 
 ## Engine: HEIDES primary, local fallback
 
 HEIDES is the engine. When its binary is present, graph facts and findings come
 from the live MCP engine and the UI says so. When it is absent, the app falls
 back to a bundled read-only local index — labelled **"local fallback"** in the
-graph header.
+mesh header.
 
 Install HEIDES:
 
@@ -35,12 +34,6 @@ curl -fsSL https://raw.githubusercontent.com/AbduljabbarBXR/heides/main/scripts/
 ```
 
 The first-run flow detects the binary and offers to install it.
-
-## Supported providers (Query)
-
-OpenRouter, OpenAI, Anthropic, Gemini, and local Ollama. Set the provider and
-API key in **Settings** (keys are stored in platform secure storage). Graph and
-Review work with HEIDES alone — no API key required.
 
 ## Development
 
