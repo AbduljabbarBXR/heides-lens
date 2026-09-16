@@ -1,0 +1,77 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          channel: stable
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd mobile
+          flutter pub get
+          flutter build linux --release
+          cd ..
+          mkdir -p dist
+          cp -r mobile/build/linux/x64/release/bundle/* dist/heides-lens-linux/
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd mobile
+          flutter pub get
+          flutter build macos --release
+          cd ..
+          mkdir -p dist
+          cp -r mobile/build/macos/Build/Products/Release/heides_lens.app dist/
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd mobile
+          flutter pub get
+          flutter build windows --release
+          cd ..
+          mkdir dist
+          xcopy /E /I mobile\build\windows\x64\runner\Release dist\heides-lens-windows
+
+      - name: Package (Linux — .deb + AppImage)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg
+          # .deb
+          VERSION=${GITHUB_REF_NAME#v}
+          PKG=/tmp/pkg/heides-lens_${VERSION}_amd64
+          mkdir -p $PKG/DEBIAN $PKG/opt/heides-lens $PKG/usr/bin $PKG/usr/share/applications
+          cp -r dist/heides-lens-linux/* $PKG/opt/heides-lens/
+          printf '#!/bin/sh\nexec /opt/heides-lens/heides_lens "$@"\n' > $PKG/usr/bin/heides-lens
+          chmod +x $PKG/usr/bin/heides-lens
+          printf '[Desktop Entry]\nType=Application\nName=Heides Lens\nExec=/opt/heides-lens/heides_lens\nIcon=heides-lens\nTerminal=false\nCategories=Development;IDE;\n' > $PKG/usr/share/applications/heides-lens.desktop
+          printf 'Package: heides-lens\nVersion: %s\nSection: devel\nPriority: optional\nArchitecture: amd64\nMaintainer: Heides <hello@heides.dev>\nDescription: The code nervous system with eyes\n' "$VERSION" > $PKG/DEBIAN/control
+          dpkg-deb --build --root-owner-group $PKG dist/heides-lens_${VERSION}_amd64.deb
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          fail_on_unmatched_files: false
