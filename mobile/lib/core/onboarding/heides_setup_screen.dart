@@ -27,11 +27,6 @@ class _HeidesSetupScreenState extends State<HeidesSetupScreen> {
   @override
   void initState() {
     super.initState();
-    SharedPreferences.getInstance().then((prefs) {
-      if (mounted) {
-        setState(() => _logoId = prefs.getInt('logo_choice') ?? 1);
-      }
-    });
     _check();
   }
 

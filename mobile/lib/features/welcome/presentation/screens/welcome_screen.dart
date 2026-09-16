@@ -148,28 +148,11 @@ class _LinkRowState extends State<_LinkRow> {
   }
 }
 
-class _WelcomeLogo extends StatefulWidget {
+class _WelcomeLogo extends StatelessWidget {
   const _WelcomeLogo();
 
   @override
-  State<_WelcomeLogo> createState() => _WelcomeLogoState();
-}
-
-class _WelcomeLogoState extends State<_WelcomeLogo> {
-  int _logoId = 1;
-
-  @override
-  void initState() {
-    super.initState();
-    SharedPreferences.getInstance().then((prefs) {
-      if (mounted) {
-        setState(() => _logoId = prefs.getInt('logo_choice') ?? 1);
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return HeidesLogoFull(id: _logoId, markSize: 52, fontSize: 30);
+    return HeidesLogoFull(id: 1, markSize: 52, fontSize: 30);
   }
 }

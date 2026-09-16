@@ -43,7 +43,6 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 
 ![First Launch](assets/images/screens-jpg/logo-picker.jpg)
 
-- Choose a logo for your Lens from five identity variants
 - **HEIDES engine setup** — one click installs the engine locally (no account, no cloud)
 - Interactive tour of the neural mesh, review, and guards
 

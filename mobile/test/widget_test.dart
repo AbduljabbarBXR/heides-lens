@@ -8,7 +8,6 @@ import 'package:heides_lens/shared/logos.dart';
 void main() {
   testWidgets('AppShell smoke test', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({
-      'logo_choice': 1,
       'onboarding_completed': true,
       'heides_setup_done': true,
     });

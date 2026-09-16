@@ -146,7 +146,6 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'onboarding_completed': true,
       'heides_setup_done': true,
-      'logo_choice': 1,
     });
   });
 

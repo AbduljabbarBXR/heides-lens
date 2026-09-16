@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:heides_lens/shared/themes/app_colors.dart';
 import 'package:heides_lens/shared/logos.dart';
-import 'package:heides_lens/core/onboarding/logo_picker_screen.dart';
+import 'package:heides_lens/core/onboarding/onboarding_overlay.dart';
 import 'package:heides_lens/core/onboarding/heides_setup_screen.dart';
 import 'package:heides_lens/core/providers/navigation_provider.dart';
 import 'package:heides_lens/core/providers/project_provider.dart';
@@ -33,10 +33,8 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> with WindowListener {
   bool _onboardingChecked = false;
   bool _showOnboarding = false;
-  bool _showLogoPicker = false;
   bool _showHeidesSetup = false;
   bool _heidesSetupChecked = false;
-  int _logoChoice = 1;
   bool _isIndexing = false;
   double _indexingProgress = 0;
   String _indexingStatus = '';
@@ -86,17 +84,14 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
   Future<void> _checkOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     final completed = prefs.getBool('onboarding_completed') ?? false;
-    final logoChoice = prefs.getInt('logo_choice');
     final heidesSetupDone = prefs.getBool('heides_setup_done') ?? false;
     if (mounted) {
       setState(() {
         _onboardingChecked = true;
         _heidesSetupChecked = true;
-        if (logoChoice != null) _logoChoice = logoChoice;
-        _showLogoPicker = logoChoice == null;
-        _showHeidesSetup = logoChoice != null && !heidesSetupDone;
+        _showHeidesSetup = !heidesSetupDone;
       });
-      if (logoChoice != null && heidesSetupDone && !completed) {
+      if (heidesSetupDone && !completed) {
         setState(() => _showOnboarding = true);
       }
     }
@@ -244,31 +239,6 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
         projectState.activeProject!.path != _lastPreloadedPath) {
       _lastPreloadedPath = projectState.activeProject!.path;
       _preloadData(projectState.activeProject!.path);
-    }
-
-    // Show logo picker on first launch
-    if (_showLogoPicker && _onboardingChecked) {
-      return LogoPickerScreen(
-        onComplete: () {
-          setState(() {
-            _showLogoPicker = false;
-          });
-          // Load the chosen logo, then continue: HEIDES setup → onboarding
-          SharedPreferences.getInstance().then((prefs) {
-            final chosen = prefs.getInt('logo_choice') ?? 1;
-            final heidesSetupDone = prefs.getBool('heides_setup_done') ?? false;
-            if (mounted) {
-              setState(() {
-                _logoChoice = chosen;
-                _showHeidesSetup = !heidesSetupDone;
-              });
-              if (heidesSetupDone) {
-                _markHeidesSetupDone();
-              }
-            }
-          });
-        },
-      );
     }
 
     // Show HEIDES engine setup (first run only)
@@ -437,7 +407,7 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
   }
 
   Widget _buildLogoMark() {
-    return HeidesLogoMark(id: _logoChoice, size: 22);
+    return HeidesLogoMark(id: 1, size: 22);
   }
 
   /// Global error modal — one hard error at a time, closeable, with an
@@ -575,10 +545,6 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
             MaterialPageRoute(builder: (_) => const DocumentationScreen()),
           ),
           child: const Text('Documentation'),
-        ),
-        PopupMenuItem(
-          onTap: () => setState(() => _showLogoPicker = true),
-          child: const Text('Change Logo'),
         ),
         PopupMenuItem(
           onTap: () async {

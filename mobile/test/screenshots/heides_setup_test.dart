@@ -6,7 +6,7 @@ import 'package:heides_lens/shared/themes/app_theme.dart';
 
 void main() {
   setUp(() async {
-    SharedPreferences.setMockInitialValues({'logo_choice': 2});
+    SharedPreferences.setMockInitialValues({});
   });
 
   testWidgets('heides setup screen', (tester) async {

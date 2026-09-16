@@ -49,11 +49,6 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> with TickerProvid
   @override
   void initState() {
     super.initState();
-    SharedPreferences.getInstance().then((prefs) {
-      if (mounted) {
-        setState(() => logoId = prefs.getInt('logo_choice') ?? 1);
-      }
-    });
     _fadeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _slideController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
     _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
