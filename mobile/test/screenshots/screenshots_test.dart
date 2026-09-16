@@ -15,7 +15,7 @@ import 'package:heides_lens/features/welcome/presentation/screens/welcome_screen
 /// Generates screenshots of each app section via golden tests.
 /// Run: flutter test test/screenshots --update-goldens
 
-const String projectPath = '/home/centinos/Spikey/mobile/lib';
+const String projectPath = '/home/centinos/heides_lens/mobile/lib';
 
 class FakeEngine extends IndexingEngine {
   @override

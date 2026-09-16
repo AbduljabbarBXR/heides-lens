@@ -14,7 +14,7 @@ void main() {
     expect(started, isTrue, reason: service.lastError);
 
     // describe the heides-lens workspace (this repo)
-    final manifest = await service.describe('/home/centinos/Spikey');
+    final manifest = await service.describe('/home/centinos/heides_lens');
     expect(manifest, isNotEmpty);
     expect(manifest, contains('files'));
 
