@@ -279,10 +279,16 @@ class FileScanner {
   static const Set<String> supportedExtensions = {
     '.js', '.mjs', '.cjs', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs',
     '.java', '.c', '.cpp', '.h', '.hpp', '.rb', '.php', '.dart',
-    // Language pack (Tier 1-3)
+    // Language pack 1 (Tier 1-3)
     '.swift', '.kt', '.kts', '.cs', '.sh', '.bash', '.zsh', '.lua',
     '.sql', '.ex', '.exs', '.scala', '.pl', '.pm', '.m', '.mm',
     '.vue', '.svelte', '.ps1', '.hs', '.clj', '.cljs', '.zig', '.groovy',
+    // Language pack 2 (Tier 4-5)
+    '.r', '.f90', '.f95', '.f', '.jl', '.erl', '.hrl', '.ml', '.mli',
+    '.fs', '.fsx', '.nim', '.cr', '.d', '.gd', '.sol', '.astro',
+    '.md', '.markdown', '.json', '.yaml', '.yml', '.toml',
+    '.css', '.scss', '.less', '.html', '.htm', '.xml', '.tex',
+    '.mk', '.cmake',
   };
 
   static bool isSupported(String ext) {
@@ -310,12 +316,20 @@ class FileScanner {
 
       // Function-like declarations across languages: JS/TS `function`,
       // Swift/Go `func`, Kotlin/Scala `fun`/`def`, Rust `fn`, Python/Ruby
-      // `def`, Perl `sub`, Tcl/VB `proc`.
-      final funcMatch = RegExp(r'\b(?:function|func|fun|fn|def|sub|proc)\s+(\w+)')
+      // `def`, Perl `sub`, Tcl/VB `proc`, Fortran `subroutine`.
+      final funcMatch = RegExp(r'\b(?:function|func|fun|fn|def|sub|proc|subroutine)\s+(\w+)')
           .firstMatch(trimmed);
       if (funcMatch != null) {
         final name = funcMatch.group(1)!;
         symbols.add({'name': name, 'type': 'function', 'line': i + 1, 'signature': funcMatch.group(0)});
+        functionStack.add(name);
+      }
+
+      // Erlang-style: foo() -> ... | foo() when ...
+      final erlangMatch = RegExp(r'^(\w+)\s*\([^)]*\)\s*(?:->|when)').firstMatch(trimmed);
+      if (erlangMatch != null) {
+        final name = erlangMatch.group(1)!;
+        symbols.add({'name': name, 'type': 'function', 'line': i + 1, 'signature': erlangMatch.group(0)});
         functionStack.add(name);
       }
 
@@ -469,6 +483,38 @@ class FileScanner {
       '.cljs': 'clojure',
       '.zig': 'zig',
       '.groovy': 'groovy',
+      '.r': 'r',
+      '.f90': 'fortran',
+      '.f95': 'fortran',
+      '.f': 'fortran',
+      '.jl': 'julia',
+      '.erl': 'erlang',
+      '.hrl': 'erlang',
+      '.ml': 'ocaml',
+      '.mli': 'ocaml',
+      '.fs': 'fsharp',
+      '.fsx': 'fsharp',
+      '.nim': 'nim',
+      '.cr': 'crystal',
+      '.d': 'd',
+      '.gd': 'gdscript',
+      '.sol': 'solidity',
+      '.astro': 'astro',
+      '.md': 'markdown',
+      '.markdown': 'markdown',
+      '.json': 'json',
+      '.yaml': 'yaml',
+      '.yml': 'yaml',
+      '.toml': 'toml',
+      '.css': 'css',
+      '.scss': 'css',
+      '.less': 'css',
+      '.html': 'html',
+      '.htm': 'html',
+      '.xml': 'xml',
+      '.tex': 'latex',
+      '.mk': 'make',
+      '.cmake': 'cmake',
     };
     return map[ext] ?? 'unknown';
   }

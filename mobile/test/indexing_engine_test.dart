@@ -13,7 +13,7 @@ void main() {
 
   setUp(() {
     IndexDatabase().resetForTest();
-    tempDir = Directory.systemTemp.createTempSync('spikey_test_');
+    tempDir = Directory.systemTemp.createTempSync('heides_lens_test_');
     // Point the singleton at a temp DB so path_provider isn't needed
     IndexDatabase().overridePath = p.join(tempDir.path, 'test.db');
   });
@@ -47,7 +47,7 @@ void main() {
 
     // Project A files must NOT leak into another project
     writeFile('x.dart', 'class X {}\n');
-    final otherProject = Directory.systemTemp.createTempSync('spikey_other_');
+    final otherProject = Directory.systemTemp.createTempSync('heides_lens_other_');
     File(p.join(otherProject.path, 'y.dart')).writeAsStringSync('class Y {}\n');
     await engine.indexProject(otherProject.path);
     final otherFiles = await engine.getIndexedFiles(projectPath: otherProject.path);
@@ -87,7 +87,7 @@ void main() {
   });
 
   test('language pack detects new languages and extracts symbols', () async {
-    // Extension → language mapping for the added pack
+    // Extension → language mapping for the added packs
     const expected = {
       '.swift': 'swift',
       '.kt': 'kotlin',
@@ -101,6 +101,27 @@ void main() {
       '.ps1': 'powershell',
       '.hs': 'haskell',
       '.vue': 'vue',
+      '.r': 'r',
+      '.f90': 'fortran',
+      '.jl': 'julia',
+      '.erl': 'erlang',
+      '.ml': 'ocaml',
+      '.fs': 'fsharp',
+      '.nim': 'nim',
+      '.cr': 'crystal',
+      '.gd': 'gdscript',
+      '.sol': 'solidity',
+      '.astro': 'astro',
+      '.md': 'markdown',
+      '.json': 'json',
+      '.yaml': 'yaml',
+      '.toml': 'toml',
+      '.css': 'css',
+      '.html': 'html',
+      '.xml': 'xml',
+      '.tex': 'latex',
+      '.mk': 'make',
+      '.cmake': 'cmake',
     };
     expected.forEach((ext, lang) {
       expect(FileScanner.detectLanguage(ext), lang, reason: 'detectLanguage($ext)');
@@ -114,13 +135,20 @@ void main() {
     writeFile('deploy.sh', '#!/bin/bash\nfunction deploy() {\n  echo hi\n}\n');
     writeFile('lib.lua', 'function start()\n  print("x")\nend\n');
     writeFile('user.ex', 'defmodule User do\n  def name do\n  end\nend\n');
+    writeFile('worker.erl', 'handle_call(Msg) ->\n  ok.\n');
+    writeFile('app.jl', 'function train()\n  println("x")\nend\n');
+    writeFile('trait.sol', 'contract Token {}\nfunction balanceOf() public {}\n');
+    writeFile('pages.astro', '---\nconst title = "Home";\n---\n<html>hi</html>\n');
 
     await engine.indexProject(tempDir.path);
     final files = await engine.getIndexedFiles(projectPath: tempDir.path);
-    expect(files.length, 6, reason: 'all six language-pack files must index');
+    expect(files.length, 10, reason: 'all language-pack files must index');
 
     final db = await engine.db.db;
     final names = (await db.query('symbols')).map((s) => s['name']).toSet();
-    expect(names, containsAll(['App', 'greet', 'main', 'Program', 'deploy', 'start', 'name']));
+    expect(names, containsAll([
+      'App', 'greet', 'main', 'Program', 'deploy', 'start', 'name',
+      'handle_call', 'train', 'balanceOf',
+    ]));
   });
 }

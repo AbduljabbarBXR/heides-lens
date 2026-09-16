@@ -19,9 +19,6 @@ It is not another coding assistant. It is the brain your codebase never had — 
 
 - [User Guide](docs/user-guide.md) — visual walkthrough of every app section
 - [HEIDES](https://github.com/AbduljabbarBXR/heides) — the engine: Spine graph, Harmony guards, Grounding plans
-- [Plugin API](docs/plugin-api.md) — manifest format, hooks, permissions
-- [Hook Reference](docs/hook-reference.md) — every hook and its arguments
-- [Security](docs/security.md) — threat model and hardening notes
 - [Architecture](ARCHITECTURE.md) — full design document
 - [Release & Distribution](docs/RELEASE.md) — what's left: npm, MCP registry, Linux/Windows/macOS packaging
 
@@ -35,10 +32,8 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
-- [Plugin System](#plugin-system)
 - [Development](#development)
 - [Contributing](#contributing)
-- [Roadmap](#roadmap)
 - [Discussion](#discussion)
 - [License](#license)
 
@@ -84,12 +79,6 @@ The app ships with an in-app documentation viewer: **Help → Documentation**.
 - Incremental indexing by file hash
 - Findings storage per file
 
-### Plugin System
-- Manifest-driven plugins with permissions
-- Hook system: on_file_save, on_diff, on_graph_build, on_analysis_complete
-- Marketplace client with search, categories, install
-- Sandboxed execution model
-
 ## Architecture
 
 ```
@@ -104,7 +93,7 @@ heides-lens/
 │   │   ├── shared/               # Themes, logos, widgets
 │   │   └── data/                 # Indexing engine, SQLite
 │   └── test/
-├── packages/                     # Supporting tooling (CLI, registry)
+├── docs/                         # User guide, release checklist
 ├── ARCHITECTURE.md               # Full design document
 └── README.md                     # This file
 ```
@@ -187,36 +176,6 @@ heides plan "refactor the checkout flow"
 ### HEIDES
 HEIDES needs no configuration — local by default, no account, no cloud.
 
-## Plugin System
-
-### Plugin Manifest
-```json
-{
-  "id": "com.heideslens.example-plugin",
-  "name": "Example Plugin",
-  "version": "1.0.0",
-  "description": "Does something useful",
-  "author": "you",
-  "category": ["analysis"],
-  "permissions": ["read:files", "write:reports"],
-  "hooks": ["on_analysis_complete"],
-  "entry": "index.js",
-  "models": ["openai/gpt-4o", "anthropic/claude-3.5-sonnet"]
-}
-```
-
-### Available Hooks
-- `on_file_save`: Triggered when a file is saved
-- `on_diff`: Triggered when a diff is computed
-- `on_graph_build`: Triggered when dependency graph is built
-- `on_analysis_complete`: Triggered after full analysis
-
-### Marketplace
-```bash
-heides plugin search security
-heides plugin install com.heideslens.security-scanner
-heides plugin list
-```
 
 ## Development
 
@@ -232,7 +191,6 @@ git clone https://github.com/AbduljabbarBXR/heides-lens.git
 cd heides-lens
 
 # Install CLI dependencies
-cd packages/cli
 npm install
 npm run build
 
@@ -244,7 +202,6 @@ flutter pub get
 ### Testing
 ```bash
 # CLI tests
-cd packages/cli
 npm test
 
 # Flutter tests
@@ -257,15 +214,6 @@ flutter analyze
 
 ### Project Structure
 ```
-packages/cli/
-├── src/
-│   ├── commands/          # CLI commands (analyze, diff, graph, etc.)
-│   ├── analysis/          # Diff engine, AST parser, graph builder
-│   ├── plugins/           # Plugin loader, sandbox
-│   └── models/            # TypeScript types
-├── plugins/               # Built-in plugins
-└── tests/                 # Unit and integration tests
-
 mobile/
 ├── lib/
 │   ├── core/              # App shell, providers, services
@@ -292,7 +240,6 @@ Contributions are welcome. Please follow these guidelines:
 5. Submit a pull request
 
 ### Code Style
-- TypeScript: use ESLint configuration in `packages/cli/`
 - Dart: follow Flutter style guide, run `flutter analyze`
 - Commit messages: use conventional commits (feat, fix, docs, etc.)
 
@@ -304,29 +251,6 @@ Please include:
 - Expected vs actual behavior
 - Screenshots or logs
 
-## Roadmap
-
-- [x] Terminal CLI with TUI
-- [x] Git diff engine
-- [x] Tree-sitter AST parsing
-- [x] Dependency graph builder
-- [x] Security scanner plugin
-- [x] Plugin loader and marketplace
-- [x] Flutter cross-platform UI
-- [x] Graph mode with neural visualization
-- [x] Review mode with real findings
-- [x] Indexing engine with SQLite
-- [x] Desktop window controls
-- [ ] Code previews from findings (open file:line)
-- [ ] Integrated terminal
-- [ ] Command palette
-- [ ] Split views and tabs
-- [ ] Breadcrumbs
-- [ ] Find/replace across project
-- [ ] Debugger integration
-- [ ] Cloud sync
-- [ ] Voice input for vibe coders
-- [ ] CI/CD plugins
 
 ## Discussion
 

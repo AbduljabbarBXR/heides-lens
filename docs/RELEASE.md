@@ -11,19 +11,13 @@ Status legend: `[ ]` = to do, `[x]` = done.
 
 ## 1. Branding & identity cleanup (do first — blocks publishing)
 
-The rename from Spikey → HEIDES is complete in the app but not in the packages.
+The rename from Spikey → HEIDES is complete. Legacy artifacts were removed.
 
-- [ ] `packages/cli/package.json` — rename `@spikey/cli` → `@heides/cli`,
-      `bin: { "spikey" }` → `{ "heides": "./dist/index.js" }`, description
-      "Plugin-first AI coding platform" → HEIDES engine. Align version with the
-      installed engine (`heides --version` currently 0.14.4).
-- [ ] `packages/registry/package.json` — rename `@spikey/registry` → `@heides/registry`,
-      keywords/author updated.
-- [ ] `ARCHITECTURE.md` still describes "VybeCode — Plugin-First AI Coding Platform".
-      Rewrite from the HEIDES Lens architecture (spine index → guards → lens) or
-      archive it.
-- [ ] `mobile/README.md` still lists **Query (chat)** and **Explorer** — both were
-      removed. Update to: Neural Mesh, Review, Docs, HEIDES engine install.
+- [x] `packages/cli` + `packages/registry` (legacy Spikey CLI/registry, not the
+      engine) — **deleted from this repo**. The engine ships from the heides repo.
+- [x] `ARCHITECTURE.md` rewritten for the current product; stale VybeCode/Spikey
+      docs (`plugin-api.md`, `hook-reference.md`, `security.md`) removed.
+- [x] `mobile/README.md` reflects the current feature set (no Query/Explorer).
 - [x] Repo renamed `spikey` → **`AbduljabbarBXR/heides-lens`** on GitHub (old URL
       redirects); local remote updated to `git@github.com:AbduljabbarBXR/heides-lens.git`.
 - [ ] Grep the repo for `spikey|VybeCode` leftovers before publishing anything.
@@ -78,14 +72,14 @@ Claude Code, VS Code Copilot) through the server — not through an extension:
 > only duplicate `lens.open` + server auto-registration. Revisit only if
 > adoption data shows users need one-click setup inside a specific editor.
 
-## 4. Plugin registry — deploy `packages/registry`
+## 4. Plugin registry — deploy
 
-- [ ] Deploy the Express registry (Render / Fly.io / Railway), HTTPS + CORS for the app.
-- [ ] Wire `@heides/registry` to a domain (e.g. `registry.heides.dev`).
+The registry backend was removed from this repo along with the legacy packages;
+plugin guards live engine-side (heides repo) and need a registry to publish to.
+
+- [ ] Host the plugin registry (Render / Fly.io / Railway), HTTPS + CORS for clients.
+- [ ] Wire it to a domain (e.g. `registry.heides.dev`).
 - [ ] Version the plugin manifest schema; add publisher auth before opening writes.
-- [ ] Point the app's plugin/docs references at the deployed URL (docs currently
-      describe a marketplace that was removed — keep the registry server-side only
-      until the app re-adds a marketplace surface, if ever).
 
 ## 5. Engine language coverage — 15+ languages
 
@@ -160,8 +154,8 @@ Each must be deterministic, JSON-emitting, with `file:line` evidence.
       matrix (ubuntu-latest, macos-latest, windows-latest) →
       `flutter build` per platform → upload artifacts to the GitHub Release.
 - [ ] npm publish job (`--provenance`) from the same tag.
-- [ ] Version discipline: bump `mobile/pubspec.yaml`, `packages/cli/package.json`,
-      `packages/registry/package.json` together; `CHANGELOG.md` per release.
+- [ ] Version discipline: bump `mobile/pubspec.yaml` (app) and the engine version
+      (heides repo) together; `CHANGELOG.md` per release.
 - [ ] Release checklist gate: `flutter analyze` 0 errors, `flutter test` green,
       goldens regenerated, engine install smoke-tested on each OS.
 

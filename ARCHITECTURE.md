@@ -8,12 +8,6 @@ system. The HEIDES engine lives in its own repository
 and is distributed as an npm package / binary. Lens is a Flutter desktop app
 that consumes the engine over its MCP interface.
 
-The repo also contains `packages/cli` and `packages/registry` — legacy artifacts
-of the earlier Spikey CLI/registry product. **They are not the HEIDES engine**
-(the app spawns the external `heides` binary via `heidesService`) and their
-future is an open decision: rebuild them as the npm/MCP distribution channel,
-or remove them (see docs/RELEASE.md).
-
 ## 2. Components
 
 ```

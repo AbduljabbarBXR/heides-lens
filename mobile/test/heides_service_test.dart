@@ -13,7 +13,7 @@ void main() {
     final started = await service.start();
     expect(started, isTrue, reason: service.lastError);
 
-    // describe the spikey workspace (this repo)
+    // describe the heides-lens workspace (this repo)
     final manifest = await service.describe('/home/centinos/Spikey');
     expect(manifest, isNotEmpty);
     expect(manifest, contains('files'));
