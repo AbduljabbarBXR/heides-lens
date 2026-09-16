@@ -24,8 +24,8 @@ The rename from Spikey → HEIDES is complete in the app but not in the packages
       archive it.
 - [ ] `mobile/README.md` still lists **Query (chat)** and **Explorer** — both were
       removed. Update to: Neural Mesh, Review, Docs, HEIDES engine install.
-- [ ] Optionally rename the repo `spikey` → `heides-lens` on GitHub (old URL keeps
-      redirecting) so npm/GitHub naming matches.
+- [x] Repo renamed `spikey` → **`AbduljabbarBXR/heides-lens`** on GitHub (old URL
+      redirects); local remote updated to `git@github.com:AbduljabbarBXR/heides-lens.git`.
 - [ ] Grep the repo for `spikey|VybeCode` leftovers before publishing anything.
 
 ## 2. npm — publish the HEIDES CLI
