@@ -15,7 +15,6 @@ The rename from Spikey → HEIDES is complete. Legacy artifacts were removed.
 
 - [x] `packages/cli` + `packages/registry` (legacy Spikey CLI/registry, not the
       engine) — **deleted from this repo**. The engine ships from the heides repo.
-- [x] `ARCHITECTURE.md` rewritten for the current product; stale VybeCode/Spikey
       docs (`plugin-api.md`, `hook-reference.md`, `security.md`) removed.
 - [x] `mobile/README.md` reflects the current feature set (no Query/Explorer).
 - [x] Repo renamed `spikey` → **`AbduljabbarBXR/heides-lens`** on GitHub (old URL

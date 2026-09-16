@@ -19,7 +19,6 @@ It is not another coding assistant. It is the brain your codebase never had — 
 
 - [User Guide](docs/user-guide.md) — visual walkthrough of every app section
 - [HEIDES](https://github.com/AbduljabbarBXR/heides) — the engine: Spine graph, Harmony guards, Grounding plans
-- [Architecture](ARCHITECTURE.md) — full design document
 - [Release & Distribution](docs/RELEASE.md) — what's left: npm, MCP registry, Linux/Windows/macOS packaging
 
 The app ships with an in-app documentation viewer: **Help → Documentation**.
@@ -93,7 +92,7 @@ heides-lens/
 │   │   └── data/                 # Indexing engine, SQLite
 │   └── test/
 ├── docs/                         # User guide, release checklist
-├── ARCHITECTURE.md               # Full design document
+
 └── README.md                     # This file
 ```
 
