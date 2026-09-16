@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:heides_lens/shared/themes/app_colors.dart';
 import 'package:heides_lens/core/providers/findings_provider.dart';
+import 'package:heides_lens/core/providers/error_provider.dart';
 import 'package:heides_lens/core/providers/heides_provider.dart';
 import 'package:heides_lens/core/providers/project_provider.dart';
 
@@ -101,7 +102,14 @@ class ReviewScreen extends ConsumerWidget {
                 );
               },
               loading: () => const _LoadingReviewState(),
-              error: (error, _) => Center(
+              error: (error, _) {
+                ref.read(errorProvider.notifier).show(AppError(
+                  id: 'review-load',
+                  title: 'Could not load findings',
+                  message: '$error',
+                  action: AppErrorAction.review,
+                ));
+                return Center(
                 child: Column(
                   children: [
                     const Icon(Icons.error_rounded, size: 48, color: AppColors.error),
@@ -109,8 +117,9 @@ class ReviewScreen extends ConsumerWidget {
                     Text('Error: $error', style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
                   ],
                 ),
-              ),
-            ),
+                );
+              },
+          ),
           ),
         ],
       ),

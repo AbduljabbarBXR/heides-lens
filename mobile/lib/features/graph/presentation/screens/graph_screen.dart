@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:heides_lens/shared/themes/app_colors.dart';
 import 'package:heides_lens/core/providers/indexing_provider.dart';
+import 'package:heides_lens/core/providers/error_provider.dart';
 import 'package:heides_lens/core/providers/project_provider.dart';
 import 'package:heides_lens/core/providers/heides_provider.dart';
 import 'package:heides_lens/core/services/graph_analysis.dart';
@@ -772,7 +773,15 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-              error: (error, _) => _buildErrorState(error),
+              error: (error, _) {
+                ref.read(errorProvider.notifier).show(AppError(
+                  id: 'graph-data',
+                  title: 'Could not build the mesh',
+                  message: '$error',
+                  action: AppErrorAction.review,
+                ));
+                return _buildErrorState(error);
+              },
             ),
           ),
         ],

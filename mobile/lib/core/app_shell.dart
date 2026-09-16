@@ -9,6 +9,7 @@ import 'package:heides_lens/core/providers/navigation_provider.dart';
 import 'package:heides_lens/core/providers/project_provider.dart';
 import 'package:heides_lens/core/providers/indexing_provider.dart';
 import 'package:heides_lens/core/providers/findings_provider.dart';
+import 'package:heides_lens/core/providers/error_provider.dart';
 import 'package:heides_lens/core/providers/notifications_provider.dart';
 import 'package:heides_lens/core/onboarding/onboarding_overlay.dart';
 import 'package:heides_lens/core/services/graph_analysis.dart';
@@ -40,6 +41,7 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
   double _indexingProgress = 0;
   String _indexingStatus = '';
   bool _isMaximized = false;
+  bool _meshAutoOpened = false;
 
   final FocusNode _focusNode = FocusNode();
 
@@ -188,6 +190,12 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
           _isIndexing = false;
           _indexingStatus = 'Error: $e';
         });
+        ref.read(errorProvider.notifier).show(AppError(
+          id: 'indexing-failed',
+          title: 'Indexing failed',
+          message: '$e',
+          action: AppErrorAction.none,
+        ));
       }
     }
   }
@@ -218,6 +226,19 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
     final navState = ref.watch(navigationProvider);
     final projectState = ref.watch(projectProvider);
     final notificationBadges = ref.watch(notificationsProvider);
+    final appError = ref.watch(errorProvider);
+
+    // Mesh-first: land on the neural mesh once a project is loaded, unless
+    // the user has already navigated away. Keeps Home as a fallback when no
+    // project is open (and for the first-run flow).
+    if (projectState.activeProject != null &&
+        !_meshAutoOpened &&
+        navState.currentMode == AppMode.home) {
+      _meshAutoOpened = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(navigationProvider.notifier).setMode(AppMode.graph);
+      });
+    }
 
     if (projectState.activeProject != null &&
         projectState.activeProject!.path != _lastPreloadedPath) {
@@ -282,7 +303,9 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
     }
 
     return Scaffold(
-      body: KeyboardListener(
+      body: Stack(
+        children: [
+          KeyboardListener(
         focusNode: _focusNode,
         onKeyEvent: _handleKeyEvent,
         autofocus: true,
@@ -407,11 +430,107 @@ class _AppShellState extends ConsumerState<AppShell> with WindowListener {
           ],
         ),
       ),
+        if (appError != null) _buildErrorModal(appError),
+        ],
+      ),
     );
   }
 
   Widget _buildLogoMark() {
     return HeidesLogoMark(id: _logoChoice, size: 22);
+  }
+
+  /// Global error modal — one hard error at a time, closeable, with an
+  /// optional action that routes the user to Review or the HEIDES setup.
+  Widget _buildErrorModal(AppError error) {
+    final notifier = ref.read(errorProvider.notifier);
+    final (icon, color) = switch (error.severity) {
+      AppErrorSeverity.critical => (Icons.crisis_alert_rounded, AppColors.error),
+      AppErrorSeverity.error => (Icons.error_rounded, AppColors.error),
+      AppErrorSeverity.warning => (Icons.warning_amber_rounded, AppColors.warning),
+    };
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: notifier.dismiss,
+            child: const ColoredBox(color: Colors.black54),
+          ),
+        ),
+        Center(
+          child: Container(
+            width: 440,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 24, offset: const Offset(0, 8)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, color: color, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(error.title,
+                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(error.message,
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.5),
+                    maxLines: 8,
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: notifier.dismiss,
+                      child: const Text('Dismiss', style: TextStyle(color: AppColors.textSecondary)),
+                    ),
+                    if (error.action != AppErrorAction.none) ...[
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          switch (error.action) {
+                            case AppErrorAction.review:
+                              ref.read(navigationProvider.notifier).setMode(AppMode.review);
+                            case AppErrorAction.heidesSetup:
+                              setState(() => _showHeidesSetup = true);
+                            case AppErrorAction.none:
+                              break;
+                          }
+                          notifier.dismiss();
+                        },
+                        style: ElevatedButton.styleFrom(backgroundColor: color),
+                        child: Text(error.actionLabel ?? _defaultActionLabel(error.action)),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _defaultActionLabel(AppErrorAction action) {
+    return switch (action) {
+      AppErrorAction.review => 'View in Review',
+      AppErrorAction.heidesSetup => 'Open HEIDES Setup',
+      AppErrorAction.none => 'Close',
+    };
   }
 
   Widget _buildModeContent(AppMode mode, dynamic activeProject) {
